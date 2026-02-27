@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+langgraph
+langchain
+python-dotenv
+playwright
+playwright-stealth
+psycopg2-binary
