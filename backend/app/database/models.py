@@ -13,6 +13,7 @@ class Job(Base):
     role=Column(String)
     key_requirements=Column(String)
     matching_score=Column(Integer)
+    salary_range = Column(String, nullable=True)
     status_i_approved=Column(String,default="rejected")
     company_id=Column(Integer,ForeignKey("companies.id"))
     applied_time=Column(DateTime(timezone=True),server_default=func.now())
