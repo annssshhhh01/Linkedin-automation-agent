@@ -6,7 +6,7 @@ You are a resume parser. Extract the following from this resume text:
 - projects
 - experience
 - university
--nachievements
+-achievements
 
 Return as JSON only with proper spacing . No extra text.
 recheck and scan whole text before actually giving the output so no important things get replaced
