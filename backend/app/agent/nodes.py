@@ -17,6 +17,5 @@ def resume_parser(state:AgentState):
     print(result.content)
     return{"resume":result.content} 
    
-# if __name__ == "__main__":          
-#     result = resume_parser({})    ## using it only for testing and debuggin 
-#     print(result)                        
+def scrapper(state:AgentState):
+    

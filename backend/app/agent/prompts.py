@@ -1,4 +1,5 @@
 from langchain_core.prompts import PromptTemplate
+
 resume_parser_prompt = """
 You are a resume parser. Extract the following from this resume text:
 -Education
