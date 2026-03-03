@@ -12,11 +12,11 @@ async def human_delay():
 
 async def login_and_save_cookies(page):
     await page.goto("https://www.linkedin.com/login")
-    human_delay()
+    await human_delay()
     await page.fill("#username", email)
-    human_delay()
+    await human_delay()
     await page.fill("#password", password)
-    human_delay()
+    await human_delay()
     await page.click('[type="submit"]')
     await page.wait_for_load_state("domcontentloaded")
     cookies=await page.context.cookies()

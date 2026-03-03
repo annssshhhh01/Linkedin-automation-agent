@@ -19,21 +19,24 @@ async def main():
             url = f"https://www.linkedin.com/jobs/search/?keywords={role}&location={location}&f_TPR=r86400"
             await page.goto(url)
             await human_delay()
+            # scroll through job list to load all cards
+            for i in range(5):
+                await page.evaluate("window.scrollBy(0, 500)")
+                await asyncio.sleep(1)
             job_cards=await page.query_selector_all('li[data-occludable-job-id]')
             print(f"Found {len(job_cards)} cards for role: {role}")
-
-
             for card in job_cards:
-                    await card.scroll_into_view_if_needed() #these two lines are very important as linkedin use lazy loading thus it only loads first seven job so for the next jobs to be able to render we will use .sleep(2) or anything or it load the strong for every job
-                    await asyncio.sleep(0.5)
                     job_id = await card.get_attribute("data-occludable-job-id")
                     
                     title_el = await card.query_selector("strong")
                     if not title_el:
                         print(f"SKIPPED card with job_id: {job_id}")
-                        continue 
+                        continue  # only skip if no title
                         
                     title = await title_el.inner_text()
+                    
+                    # make these optional - don't skip if missing
+                    company = ""
                     company_el = await card.query_selector(".artdeco-entity-lockup__subtitle")
                     if company_el:
                         company = (await company_el.inner_text()).strip()
