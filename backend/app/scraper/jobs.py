@@ -42,14 +42,23 @@ async def main():
                     location_el = await card.query_selector(".artdeco-entity-lockup__caption")
                     if location_el:
                         location = (await location_el.inner_text()).strip()
-    
+                    await human_delay()
+                    #after clicking fetching the jd
+                    await card.click()
+                    await page.wait_for_url(f"**{job_id}**") 
+                    await human_delay()
+                    jd_el=await page.wait_for_selector("#job-details")
+                    if jd_el:
+                         jd=await jd_el.inner_text()
+                    else:
+                         jd="Discription not found"     
+                    
                     print({
                         "job-id":job_id,
                         "title":title,
                         "company":company,
-                        "location":location
+                        "location":location,
+                        "jd":jd
                     })
-
-
 if __name__ == "__main__":
     asyncio.run(main())            
