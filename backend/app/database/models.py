@@ -10,13 +10,15 @@ class Companies(Base):
 class Job(Base):
     __tablename__="jobs"
     id=Column(Integer,primary_key=True,index=True)
+    job_id=Column(String,unique=True)
     role=Column(String)
     key_requirements=Column(String)
     matching_score=Column(Integer)
     salary_range = Column(String, nullable=True)
     status_i_approved=Column(String,default="rejected")
+    location=Column(String, nullable=True)
     company_id=Column(Integer,ForeignKey("companies.id"))
-    applied_time=Column(DateTime(timezone=True),server_default=func.now())
+    scraped_time=Column(DateTime(timezone=True),server_default=func.now())
 
 class People(Base):
     __tablename__="peoples"

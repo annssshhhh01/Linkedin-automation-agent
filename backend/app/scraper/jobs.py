@@ -4,7 +4,14 @@ from dotenv import load_dotenv
 import os
 import asyncio
 from auth import load_cookies,human_delay
+
 load_dotenv()
+
+import sys
+sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
+from database.connection import session
+from database.models import Job, Companies
+
 async def main():
     async with async_playwright() as p:
         browser= await p.chromium.launch(headless=False)
@@ -21,8 +28,6 @@ async def main():
             await human_delay()
             job_cards=await page.query_selector_all('li[data-occludable-job-id]')
             print(f"Found {len(job_cards)} cards for role: {role}")
-
-
             for card in job_cards:
                     await card.scroll_into_view_if_needed() #these two lines are very important as linkedin use lazy loading thus it only loads first seven job so for the next jobs to be able to render we will use .sleep(2) or anything or it load the strong for every job
                     await asyncio.sleep(0.5)
@@ -52,13 +57,33 @@ async def main():
                          jd=await jd_el.inner_text()
                     else:
                          jd="Discription not found"     
+                    # now we will store all the data in postgre
+                    db=session()
+                    existing_company=db.query(Companies).filter(Companies.name==company).first() #we use first so wheneverit found out the company name then it stop it is like limits in db
+                    if not existing_company: 
+                         company_record=Companies(name=company)
+                         db.add(company_record)
+                         db.commit()
+                         db.refresh(company_record) # we need to use refresh as postgre will insert the ele but python wont know so  we use refresh so python knows the assigned value
+                    else:
+                         company_record=existing_company
+                    #for jobs
+                    existing_job=db.query(Job).filter(Job.job_id==job_id).first()
+                    if not existing_job:
+                         job_record=Job(job_id=job_id,
+                                    company_id=company_record.id,
+                                    key_requirements=jd,
+                                    location=location,
+                                    role=title)
+                         db.add(job_record)
+                         db.commit()
+                    db.close()     
                     
                     print({
                         "job-id":job_id,
                         "title":title,
                         "company":company,
                         "location":location,
-                        "jd":jd
                     })
 if __name__ == "__main__":
     asyncio.run(main())            
