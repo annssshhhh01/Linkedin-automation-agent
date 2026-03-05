@@ -4,7 +4,7 @@ class AgentState(TypedDict):
     jobs:Annotated[List[dict],operator.add]
     salary: Optional[int]
     resume:dict
-    human_approval:bool
+    human_approval:dict[int,bool]
     is_alumni:bool
     matching_score: Optional[int]   
     generated_note: Optional[str]    

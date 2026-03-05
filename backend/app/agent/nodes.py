@@ -1,5 +1,6 @@
 from langchain_groq import ChatGroq
 from ..database.models import Job
+from langgraph.types import interrupt
 from ..database.connection import session
 from sqlalchemy import select # it is used to fetch the db
 from .prompts import resume_parser_prompt,matching_score_prompt
@@ -11,16 +12,16 @@ import os
 load_dotenv()
 pdf_path=os.getenv("RESUME_PATH")
 model=ChatGroq(model="llama-3.1-8b-instant")
-
+db=session
 
 def safe_parse_json(content):
-    content = content.strip()
+    content = content.strip() # it will remove unneccessary spaces
     if "```" in content:
-        content = content.split("```")[1]
+        content = content.split("```")[1] #it will split the json like ``` and next part and by doing[1] we perform indexing and fetching all relevant data just after ``` and most prolly our data came out as json {skill:"xyx"} so we need to remove json word as well
         if content.startswith("json"):
-            content = content[4:]
+            content = content[4:]  # it will start the elemenet just after the word json
         content = content.strip()
-    return json.loads(content)
+    return json.loads(content) #as our llm output would be json so we cant do result[skill] like this so we converted it to make it python dict 
 
 # it will take the resume and write it in json format so it becomes easier to match a score
 def resume_parser(state:AgentState):
@@ -30,14 +31,12 @@ def resume_parser(state:AgentState):
         resume_text+=page.extract_text()
     prompt = resume_parser_prompt.format(resume_text=resume_text)
     result = model.invoke(prompt)
-    parsed_resume = safe_parse_json(result.content)   #as our llm output would be json so we cant do result[skill] like this so we converted it to make it python dict 
+    parsed_resume = safe_parse_json(result.content)  
     return{"resume":parsed_resume} 
 
 #it will take resume and givr you a matching score
-
 def matching_score(state:AgentState):
     pointing_the_data=select(Job.job_id,Job.key_requirements)  # it will prepare the query but not execute it the query would be "Select key_requirements from JOB"
-    db=session
     resume=state["resume"]
     result=session.execute(pointing_the_data)
     fetched_jd=result.all() # this line will give us all the rows corresponding to that column and store it in a list 
@@ -52,20 +51,45 @@ def matching_score(state:AgentState):
         job_record.matching_score=score
         job_record.match_reason=reason
         db.commit()
-
-    #storing only those which have score >60
-    matched_score=db.query(Job).filter(Job.matching_score>=60).all()
-    for j in matched_score:
-        print(j.id, j.role, j.matching_score)
+    matched_score=db.query(Job).filter(Job.matching_score>=60).all()  #storing only those which have score >60
     db.close()    
     return {"jobs":[{"id":j.id,"role":j.role,"score":j.matching_score} for j in matched_score]} # storing only those with score higher than 60
+
+#now human in the loop will come which will ask the user if it approves or not
+def job_hitl(state:AgentState):
+    matched_score=db.query(Job).filter(Job.matching_score>=60).all()
+    jobs_data=[{"id":j.id,"role": j.role, "score": j.matching_score,"reason": j.matched_reason} for j in matched_score]
+    return interrupt({
+        "type":"job_selection",
+        "jobs":jobs_data,
+        "message":"Do You Want to approve this or not? (Y/N)"
+    })
+
+#this node will process and update the db when user approved the job_hitl
+
+def processing_human_approved_job(state:AgentState):
+    decision=state["human_approval"] # it contain job id and approved/not_approved
+
+    for job_id,approved in decision.item():# we use .item() as in dict we have 2 key value so if we dont use this then we conly fetch first one which is id:job_id and cant approve:true false
+        job=db.query(Job).filter(Job.job_id==job_id).first()
+        if approved:
+            job.status_i_approved="Approved"
+        else:
+            job.status_i_approved="Rejected"
+        db.commit()
+    return state            
+
+
+
+
+
 
 
     
 
 
 
-if __name__=="__main__":
-    resume_result = resume_parser({})
-    matching_score(resume_result)
+# if __name__=="__main__":
+#     resume_result = resume_parser({})
+#     matching_score(resume_result)
     
