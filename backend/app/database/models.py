@@ -1,5 +1,5 @@
 from sqlalchemy import Column,Integer,String,DateTime,ForeignKey,Boolean
-from connection import Base
+from .connection import Base
 from sqlalchemy.sql import func
 class Companies(Base):
     __tablename__="companies"
@@ -14,6 +14,7 @@ class Job(Base):
     role=Column(String)
     key_requirements=Column(String)
     matching_score=Column(Integer)
+    match_reason = Column(String, nullable=True)
     salary_range = Column(String, nullable=True)
     status_i_approved=Column(String,default="rejected")
     location=Column(String, nullable=True)

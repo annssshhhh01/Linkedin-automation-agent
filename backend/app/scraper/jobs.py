@@ -3,7 +3,7 @@ from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 import os
 import asyncio
-from auth import load_cookies,human_delay
+from .auth import load_cookies,human_delay
 
 load_dotenv()
 
@@ -58,7 +58,7 @@ async def main():
                     else:
                          jd="Discription not found"     
                     # now we will store all the data in postgre
-                    db=session()
+                    db=session
                     existing_company=db.query(Companies).filter(Companies.name==company).first() #we use first so wheneverit found out the company name then it stop it is like limits in db
                     if not existing_company: 
                          company_record=Companies(name=company)
