@@ -14,7 +14,7 @@ from database.models import Job, Companies
 
 async def main():
     async with async_playwright() as p:
-        browser= await p.chromium.launch(headless=False)
+        browser= await p.chromium.launch(headless=False) # headless=false means the browser ui will show and we can see each step 
         page=await browser.new_page()
         stealth=Stealth()
         await stealth.apply_stealth_async(page)
