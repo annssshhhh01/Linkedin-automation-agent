@@ -14,13 +14,19 @@ pdf_path=os.getenv("RESUME_PATH")
 model=ChatGroq(model="llama-3.1-8b-instant")
 
 def safe_parse_json(content):
-    content = content.strip() # it will remove unneccessary spaces
+    content = content.strip()
     if "```" in content:
-        content = content.split("```")[1] #it will split the json like ``` and next part and by doing[1] we perform indexing and fetching all relevant data just after ``` and most prolly our data came out as json {skill:"xyx"} so we need to remove json word as well
+        content = content.split("```")[1]
         if content.startswith("json"):
-            content = content[4:]  # it will start the elemenet just after the word json
+            content = content[4:]
         content = content.strip()
-    return json.loads(content) #as our llm output would be json so we cant do result[skill] like this so we converted it to make it python dict 
+    
+    # find just the first JSON object
+    start = content.find("{")
+    end = content.rfind("}") + 1
+    content = content[start:end]
+    
+    return json.loads(content)
 
 # it will take the resume and write it in json format so it becomes easier to match a score
 def resume_parser(state:AgentState):

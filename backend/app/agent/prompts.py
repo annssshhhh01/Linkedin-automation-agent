@@ -9,7 +9,13 @@ You are a resume parser. Extract the following from this resume text:
 - university
 -achievements
 
-Return as JSON only with proper spacing . No extra text.
+Output only valid JSON. Do not include backticks, markdown, or any text before or after the JSON object
+example for reference-Return strictly in this JSON format:
+{{
+    "name": "...",
+    "skills": [],
+    "experience": "..."
+}} give output like this only dont add anything like ``` or any kind of text you have to return in {{"name":"John", "age":30, "car":null}} this format only 
 recheck and scan whole text before actually giving the output so no important things get replaced
 Resume:
 {resume_text}
