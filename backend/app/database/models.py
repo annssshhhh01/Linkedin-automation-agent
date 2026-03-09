@@ -1,6 +1,7 @@
 from sqlalchemy import Column,Integer,String,DateTime,ForeignKey,Boolean
 from .connection import Base
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 class Companies(Base):
     __tablename__="companies"
     id=Column(Integer,primary_key=True,index=True)
@@ -40,7 +41,11 @@ class outreach(Base):
     note=Column(String)
     applied_time=Column(DateTime(timezone=True),server_default=func.now())
 
-    
+class resume_embeding(Base):
+    __tablename__="resume_embedding"
+    id=Column(Integer,primary_key=True)
+    content=Column(String)
+    embedding=Column(Vector(384))    
 
 
 
