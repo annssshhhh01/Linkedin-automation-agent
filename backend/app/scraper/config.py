@@ -5,5 +5,5 @@ BAD_POSITIONS = [
     "fresher"
 ]
 
-HR_KEYWORDS = ["recruiter","talent acquisition","hr","human resources", "hiring manager","engineering manager","tech recruiter","university recruiter","campus recruiter"
+HR_KEYWORDS = ["recruiter","talent acquisition","hr","human resources", "hiring manager","engineering manager","tech recruiter","university recruiter","campus recruiter","Backend Engineer","AI Engineer", "Software Engineer"
 ]

@@ -60,3 +60,28 @@ Job role: {job_role}
 Company: {company}
 Skills: {skills}
 """
+hr_note_prompt = """
+You are writing a LinkedIn connection request note to a recruiter or HR professional.
+STRICT 200 character limit. Return ONLY the note, nothing else.
+
+Use this template:
+"Hi {name}, I'm applying for the {job_role} role at {company}. With experience in {skills}, I believe I'd be a strong fit. Would be happy to share my resume Would love any guidance on the application process. Thank you!
+Inputs:
+Name: {name}
+Job role: {job_role}
+Company: {company}
+Skills: {skills}
+"""
+employee_note_prompt = """
+You are writing a LinkedIn connection request note to an employee.
+STRICT 200 character limit. Return ONLY the note, nothing else.
+
+Use this template:
+Hi [Name], I'm applying for the [Job Role] role at [Company] and have a strong background in [Stack]. I've been following [Company]'s work and would love to hear your thoughts on the team. I'm happy to share my resume if you'd be open to a referral! Thank you!
+Inputs:
+Name: {name}
+College: {college}
+Job role: {job_role}
+Company: {company}
+Skills: {skills}
+"""

@@ -3,7 +3,7 @@ from ..database.models import Job,People,Companies
 from langgraph.types import interrupt
 from ..database.connection import session
 from sqlalchemy import select # it is used to fetch the db
-from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt
+from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt,hr_note_prompt,employee_note_prompt
 from .state import AgentState
 from pypdf import PdfReader
 from rag.retriever import retrieved_data
@@ -108,6 +108,22 @@ def note_generator(state:AgentState):
                     company=company.name,
                     skills=data_retrieved,
                 )
+            else:
+                position_lower = person.position.lower()
+                if any(i in position_lower for i in ["recruiter", "hr", "talent", "hiring"]):
+                    prompt = hr_note_prompt.format(
+                        name=person.name,
+                        job_role=job["role"],
+                        company=company.name,
+                        skills=data_retrieved
+                    )
+                else:
+                    prompt = employee_note_prompt.format(
+                        name=person.name,
+                        job_role=job["role"],
+                        company=company.name,
+                        skills=data_retrieved
+                    )   
              
 
 
