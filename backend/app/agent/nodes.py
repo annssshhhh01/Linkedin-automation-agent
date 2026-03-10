@@ -1,11 +1,12 @@
 from langchain_groq import ChatGroq
-from ..database.models import Job
+from ..database.models import Job,People,Companies
 from langgraph.types import interrupt
 from ..database.connection import session
 from sqlalchemy import select # it is used to fetch the db
-from .prompts import resume_parser_prompt,matching_score_prompt
+from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt
 from .state import AgentState
 from pypdf import PdfReader
+from rag.retriever import retrieved_data
 from dotenv import load_dotenv
 import json
 import os
@@ -65,7 +66,7 @@ def matching_score(state:AgentState):
 def job_hitl(state:AgentState):
     db=session
     matched_score=db.query(Job).filter(Job.matching_score>=60).all()
-    jobs_data=[{"id":j.job_id,"role": j.role, "score": j.matching_score,"reason": j.match_reason} for j in matched_score]
+    jobs_data=[{"id":j.job_id,"role": j.role, "score": j.matching_score,"reason": j.match_reason,"company_id":j.company_id} for j in matched_score]
     return interrupt({
         "type":"job_selection",
         "jobs":jobs_data,
@@ -89,5 +90,30 @@ def processing_human_approved_job(state:AgentState):
         db.commit()
     db.close()
     return state            
+
+def note_generator(state:AgentState):
+    db=session
+    approved_job=state["jobs"]
+    for job in approved_job: #job consist of id,role score
+        job_id=job["id"]
+        people=db.query(People).filter(People.company_id==job["company_id"]).all()
+        company=db.query(Companies).filter(Companies.id==job["company_id"]).first()
+        for person in people:
+            data_retrieved=retrieved_data(job_id)
+            if person.is_alumni==True:
+                prompt=alumni_note_prompt.format(
+                    name=People.name,
+                    college=os.getenv("COLLEGE"),
+                    job_role=job["role"],
+                    company=company.name,
+                    skills=data_retrieved,
+                )
+             
+
+
+
+
+
+    
 
     

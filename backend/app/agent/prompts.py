@@ -20,16 +20,6 @@ recheck and scan whole text before actually giving the output so no important th
 Resume:
 {resume_text}
 """
-# matching_score_prompt="""
-# you are a ai who will match the JD or key requirements of the company with the resume you have to check for the following:
-# -skills required
-# -experience (focus on this specifically)
-
-# based on that you have to return a score out of 100 wheher the overall resume content alligned with the jd provided recheck yourself before giving the output
-# resume:{resume}
-# JD:{jd}
-# """                           this was my trial
-
 matching_score_prompt = """
 You are a strict resume evaluator. Compare the resume with the job description.
 
@@ -53,4 +43,20 @@ Return ONLY this JSON, nothing else:
     "score": <number between 0-100>,
     "reason": "<one line explanation>"
 }}
+"""
+
+
+alumni_note_prompt = """
+You are writing a LinkedIn connection request note to an alumni.
+STRICT 200 character limit. Return ONLY the note, nothing else.
+
+Use this template:
+"Hi {name}, fellow {college} alum here! I'm currently applying for the {job_role} role at {company}. With experience in {skills}, I'd love to hear your thoughts on the team. Would be happy to share my resume if you'd be open to referring a fellow alum. Thank you!"
+
+Inputs:
+Name: {name}
+College: {college}
+Job role: {job_role}
+Company: {company}
+Skills: {skills}
 """
