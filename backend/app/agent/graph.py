@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph,START,END
 from langgraph.types import Command,interrupt
-from .nodes import resume_parser,matching_score,job_hitl,processing_human_approved_job
+from .nodes import resume_parser,matching_score,job_hitl,processing_human_approved_job,note_generator
 from langgraph.checkpoint.memory import MemorySaver
 from .state import AgentState
 import uuid
@@ -10,12 +10,15 @@ graph.add_node("resume_parser",resume_parser)
 graph.add_node("matching_score",matching_score)
 graph.add_node("human_decision",job_hitl)
 graph.add_node("updating_status_of_db",processing_human_approved_job)
-
+graph.add_node("note_generation",note_generator)
 graph.add_edge(START,"resume_parser")
 graph.add_edge("resume_parser","matching_score")
 graph.add_edge("matching_score","human_decision")
 graph.add_edge("human_decision","updating_status_of_db")
-graph.add_edge("updating_status_of_db",END)
+graph.add_edge("updating_status_of_db","note_generation")
+graph.add_edge("note_generation",END)
+
+
 
 checkpointer=MemorySaver()
 workflow=graph.compile(checkpointer=checkpointer)

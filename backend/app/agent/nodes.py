@@ -1,12 +1,12 @@
 from langchain_groq import ChatGroq
-from ..database.models import Job,People,Companies
+from ..database.models import Job,People,Companies,outreach
 from langgraph.types import interrupt
 from ..database.connection import session
 from sqlalchemy import select # it is used to fetch the db
 from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt,hr_note_prompt,employee_note_prompt
 from .state import AgentState
 from pypdf import PdfReader
-from rag.retriever import retrieved_data
+from ..rag.retriever import retrieved_data
 from dotenv import load_dotenv
 import json
 import os
@@ -14,20 +14,33 @@ load_dotenv()
 pdf_path=os.getenv("RESUME_PATH")
 model=ChatGroq(model="llama-3.1-8b-instant")
 
-def safe_parse_json(content):
-    content = content.strip()
-    if "```" in content:
-        content = content.split("```")[1]
-        if content.startswith("json"):
-            content = content[4:]
-        content = content.strip()
-    
-    # find just the first JSON object
-    start = content.find("{")
-    end = content.rfind("}") + 1
-    content = content[start:end]
-    
-    return json.loads(content)
+import re
+import json
+
+def safe_parse_json(content: str):
+
+    # 1️⃣ Handle empty or None output
+    if not content or not content.strip():
+        print("Warning: LLM returned empty response")
+        return {"score": 0, "reason": "Empty response"}
+
+    try:
+        return json.loads(content)
+
+    except json.JSONDecodeError:
+
+        # 2️⃣ Extract JSON from messy text
+        match = re.search(r"\{.*?\}", content, re.DOTALL)
+
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                pass
+
+        # 3️⃣ Fallback
+        print(f"Warning: Failed to parse LLM output: {content}")
+        return {"score": 0, "reason": "Parsing failed"}
 
 # it will take the resume and write it in json format so it becomes easier to match a score
 def resume_parser(state:AgentState):
@@ -60,7 +73,7 @@ def matching_score(state:AgentState):
         db.commit()
     matched_score=db.query(Job).filter(Job.matching_score>=60).all()  #storing only those which have score >60
     db.close()    
-    return {"jobs":[{"id":j.id,"role":j.role,"score":j.matching_score} for j in matched_score]} # storing only those with score higher than 60
+    return {"jobs":[{"id":j.id,"role":j.role,"score":j.matching_score,"company_id":j.company_id} for j in matched_score]} # storing only those with score higher than 60
 
 #now human in the loop will come which will ask the user if it approves or not
 def job_hitl(state:AgentState):
@@ -91,7 +104,7 @@ def processing_human_approved_job(state:AgentState):
     db.close()
     return state            
 
-def note_generator(state:AgentState):
+def note_generator(state:AgentState): #we are using mainly people db in this
     db=session
     approved_job=state["jobs"]
     for job in approved_job: #job consist of id,role score
@@ -102,7 +115,7 @@ def note_generator(state:AgentState):
             data_retrieved=retrieved_data(job_id)
             if person.is_alumni==True:
                 prompt=alumni_note_prompt.format(
-                    name=People.name,
+                    name=person.name,
                     college=os.getenv("COLLEGE"),
                     job_role=job["role"],
                     company=company.name,
@@ -123,7 +136,20 @@ def note_generator(state:AgentState):
                         job_role=job["role"],
                         company=company.name,
                         skills=data_retrieved
-                    )   
+                    ) 
+                response=model.invoke(prompt)
+                generated_note=response.content
+                exisiting_db=db.query(outreach).filter(outreach.job_id==job_id,outreach.Person_id == person.id).first()
+                if not exisiting_db:
+                    inserting_data=outreach(job_id=job_id,Person_id=person.id,note=generated_note)
+                    db.add(inserting_data)
+        db.commit()
+    all_outreach = db.query(outreach).all()
+    db.close()
+    
+    return{"outreach":[{"id":j.id,"job_id":j.job_id,"note":j.note,"status":j.status} for j in all_outreach]}
+
+
              
 
 
