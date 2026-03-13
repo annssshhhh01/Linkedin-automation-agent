@@ -154,10 +154,26 @@ def note_generator(state:AgentState): #we are using mainly people db in this
 def note_hitl(state:AgentState):
     db=session
     outreach_data=state["outreach"]
-    edited_note=interrupt({
+    human_decision=interrupt({                                #so what so ever human decision will be it will become the output of human_decision and most prolly it eill look like {"1":{"approved":true,"note":xyz}
         "Instruction":"Edit or Review This Note",
-        "contennt":outreach_data
+        "content":outreach_data
     })
+
+    #processing the note of which the human has approved and edit
+    for outreach_id,decision in human_decision.items():
+        record=db.query(outreach).filter(outreach.id==int(outreach_id)).first()
+        if not record:
+            print(f"outreach id {outreach_id} not found")
+            continue
+        if decision["approved"]:
+            record.human_approved="Approved"
+            if decision.get("edited_note"): # we use get as it is possible that edited_note key doesnt exist so in that key to prevent our code from cratching we use .get as it will simple check if this key ecist then return its value and if not then it simply return none intead of crashing
+                record.edited_note=decision["edited_note"]
+        else:
+            record.human_approved="Rejected"
+    db.commit()
+    db.close()
+    return state               
 
 
              
