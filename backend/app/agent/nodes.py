@@ -149,6 +149,16 @@ def note_generator(state:AgentState): #we are using mainly people db in this
     
     return{"outreach":[{"id":j.id,"job_id":j.job_id,"note":j.note,"status":j.status} for j in all_outreach]}
 
+#REVIEWING AND APPROVING THE note generated
+
+def note_hitl(state:AgentState):
+    db=session
+    outreach_data=state["outreach"]
+    edited_note=interrupt({
+        "Instruction":"Edit or Review This Note",
+        "contennt":outreach_data
+    })
+
 
              
 
