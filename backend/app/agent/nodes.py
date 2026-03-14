@@ -1,7 +1,7 @@
 from langchain_groq import ChatGroq
-from ..database.models import Job,People,Companies,outreach
+from app.database.models import Job,People,Companies,outreach
 from langgraph.types import interrupt
-from ..database.connection import session
+from app.database.connection import session
 from sqlalchemy import select # it is used to fetch the db
 from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt,hr_note_prompt,employee_note_prompt
 from .state import AgentState
@@ -144,19 +144,19 @@ def note_generator(state:AgentState): #we are using mainly people db in this
         db.commit()
     all_outreach = db.query(outreach).all()
     db.close()
-    
-    return{"outreach":[{"id":j.id,"job_id":j.job_id,"note":j.note,"status":j.status} for j in all_outreach]}
 
 #REVIEWING AND APPROVING THE note generated
 
 def note_hitl(state:AgentState):
     db=session
     outreach_data=state["outreach"]
-    human_decision=interrupt({                                #so what so ever human decision will be it will become the output of human_decision and most prolly it eill look like {"1":{"approved":true,"note":xyz}
+    return interrupt({                                #so what so ever human decision will be it will become the output of human_decision and most prolly it eill look like {"1":{"approved":true,"note":xyz}
         "Instruction":"Edit or Review This Note",
         "content":outreach_data
     })
 
+def processing_note(human_decision:dict):
+    db=session
     #processing the note of which the human has approved and edit
     for outreach_id,decision in human_decision.items():
         record=db.query(outreach).filter(outreach.id==int(outreach_id)).first()
@@ -171,9 +171,6 @@ def note_hitl(state:AgentState):
             record.human_approved="Rejected"
     db.commit()
     db.close()
-    return state               
-
-
              
 
 

@@ -1,10 +1,9 @@
-import sys
-sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
-from database.connection import session
-from database.models import People, Job, Companies
-from config import BAD_POSITIONS, ALUMNI_TECH_PRIORITY,HR_KEYWORDS
+
+from app.database.connection import session
+from app.database.models import People, Job, Companies
+from scraper.config import BAD_POSITIONS, ALUMNI_TECH_PRIORITY,HR_KEYWORDS
 from playwright_stealth import Stealth
-from auth import human_delay, load_cookies
+from scraper.auth import human_delay, load_cookies
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from urllib.parse import quote #it handles all special character and instead of space insert %20 so it matches with the url
@@ -150,4 +149,4 @@ async def main():
             await find_people(page, company.name, job.company_id)
             await human_delay()
         db.close()    
-asyncio.run(main())
+

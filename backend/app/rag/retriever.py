@@ -1,6 +1,6 @@
-from ..database.models import Job,Companies,resume_embeding
+from app.database.models import Job,Companies,resume_embeding
 from sqlalchemy import select
-from ..database.connection import session
+from app.database.connection import session
 from langchain_huggingface import HuggingFaceEmbeddings
 
 embedding=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
