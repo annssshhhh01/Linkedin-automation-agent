@@ -88,8 +88,7 @@ def job_hitl(state:AgentState):
 
 #this node will process and update the db when user approved the job_hitl
 
-def processing_human_approved_job(state:AgentState):
-    decision=state["human_approval"] # it contain job id and approved/not_approved
+def processing_human_approved_job(decision:dict):
     db=session
     for job_id,approved in decision.items():# we use .items() as in dict we have 2 key value so if we dont use this then we conly fetch first one which is id:job_id and cant approve:true false
         job=db.query(Job).filter(Job.job_id==job_id).first()
@@ -101,8 +100,7 @@ def processing_human_approved_job(state:AgentState):
         else:
             job.status_i_approved="Rejected"
         db.commit()
-    db.close()
-    return state            
+    db.close()           
 
 def note_generator(state:AgentState): #we are using mainly people db in this
     db=session

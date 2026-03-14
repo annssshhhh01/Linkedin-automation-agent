@@ -1,3 +1,8 @@
+
+"""  SO THIS ONE GRAPH IS FOR TERMINAL AS IN THIS WE HAVE HITL WHICH OUR TERMINAL IS HANDLING BUT IN RESPECT TO API WE LET THE FASTAPI TO HANDLE THE HITL FOR US SO WE WILL MAKE A NEW GRAPH FOR API's    """
+
+
+
 from langgraph.graph import StateGraph,START,END
 from langgraph.types import Command,interrupt
 from .nodes import resume_parser,matching_score,job_hitl,processing_human_approved_job,note_generator,note_hitl
