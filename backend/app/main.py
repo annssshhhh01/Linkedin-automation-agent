@@ -1,4 +1,4 @@
-"""it consist of all the endpoints""" 
+"""this main.py consist of all the endpoints""" 
 
 import sys
 import os
@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.append(os.getenv("MAIN_PATH"))
 from database.connection import session
+from scraper.jobs import main as scrape_jobs_main
+from agent.api_graph import score_workflow, notes_workflow
 from agent.nodes import resume_parser,matching_score,job_hitl,processing_human_approved_job,note_generator,note_hitl
 from database.models import Job, Companies, People, outreach
 from pydantic import BaseModel
@@ -41,9 +43,14 @@ class JobApproval(BaseModel):
 
 @app.post("/approved_jobs")
 def approved_job(body:BaseModel):
-    processing_human_approved_job(body.decision)
+    processing_human_approved_job(body.decision)   #note that we are handling the approved job from the api end points only and not from graph 
     return {"message":"Job Updated"}
 
 
+#scrapping job logic
+@app.post("/scrap-job")
+async def scrap_jobs():
+    await scrape_jobs_main()  # we will replace this from redis+celery
+    return {"message":"Scraping Started"}
 
-
+#scoring the jobs
