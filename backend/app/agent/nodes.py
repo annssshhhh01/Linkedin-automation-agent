@@ -91,7 +91,13 @@ def job_hitl(state:AgentState):
 def processing_human_approved_job(decision:dict):
     db=session
     for job_id,approved in decision.items():# we use .items() as in dict we have 2 key value so if we dont use this then we conly fetch first one which is id:job_id and cant approve:true false
-        job=db.query(Job).filter(Job.job_id==job_id).first()
+        job=db.query(Job).filter(Job.job_id==str(job_id)).first()
+        if not job:
+            try:
+                job=db.query(Job).filter(Job.id==int(job_id)).first()
+            except ValueError:
+                pass
+
         if not job:
             print(f"Job {job_id} not found in DB")
             continue

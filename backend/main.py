@@ -15,6 +15,13 @@ from pydantic import BaseModel
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from app.scraper.connections import main as connection_main
+
+# Global executor and future tracking for cancellable tasks
+global_executor = ThreadPoolExecutor(max_workers=5)
+active_tasks = {}
+active_flags = {}
+
+from app.scraper.connections import main as connection_main
 load_dotenv()
 app=FastAPI()
 
@@ -98,35 +105,91 @@ def get_job():
 
 #before sending the approved data we need to check it the data is valid so we will ue pydantic for that
 class JobApproval(BaseModel):
-    decision:dict
+    decisions:dict
 
-@app.post("/approved_jobs")
+@app.post("/approved_jobs") 
+#in swagger to test this it should be
+#  #{
+#   "decisions": {
+#     "job_id": true
+#   }
+# }
 def approved_job(body:JobApproval):
-    processing_human_approved_job(body.decision)   #note that we are handling the approved job from the api end points only and not from graph 
+    processing_human_approved_job(body.decisions)   #note that we are handling the approved job from the api end points only and not from graph 
     return {"message":"Job Updated"}
 
 #scrapping job logic
+@app.post("/cancel-action/{action_name}")
+async def cancel_action(action_name: str):
+    if action_name in active_tasks:
+        task = active_tasks[action_name]
+        task.cancel()
+        del active_tasks[action_name]
+        await manager.broadcast(f"{action_name} was stopped by user", "warning")
+        return {"message": f"{action_name} stopped"}
+    return {"message": "No active task found"}
+
 @app.post("/scrape-jobs")
 async def scrap_jobs():
-    await scrape_jobs_main()  # we will replace this from redis+celery
+    await manager.broadcast("starting job scraper...", "info")
+    loop = asyncio.get_event_loop()
+    task = loop.run_in_executor(global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager)))
+    active_tasks["scrape"] = task
+    try:
+        await task
+        await manager.broadcast("scraping jobs complete", "success")
+    except asyncio.CancelledError:
+        pass
+    finally:
+        active_tasks.pop("scrape", None)
     return {"message":"Scraping Started"}
 
 #scoring the jobs
 @app.post("/scoring_jobs")
-def scoring_jobs():
-    score_workflow.invoke({},config={"configurable":{"thread_id":str(uuid.uuid4())}})
+async def scoring_jobs():
+    await manager.broadcast("scoring jobs...", "info")
+    loop = asyncio.get_event_loop()
+    task = loop.run_in_executor(global_executor, lambda: score_workflow.invoke({},config={"configurable":{"thread_id":str(uuid.uuid4())}}))
+    active_tasks["score"] = task
+    try:
+        await task
+        await manager.broadcast("scoring complete", "success")
+    except asyncio.CancelledError:
+        pass
+    finally:
+        active_tasks.pop("score", None)
     return {"message":"Scoring Complete"}
 
 #scraping person
 @app.post("/scrape-people")
 async def scrape_people():
-    await scrape_people_main()
+    await manager.broadcast("scraping people...", "info")
+    loop = asyncio.get_event_loop()
+    task = loop.run_in_executor(global_executor, lambda: asyncio.run(scrape_people_main()))
+    active_tasks["people"] = task
+    try:
+        await task
+        await manager.broadcast("people scraped successfully", "success")
+    except asyncio.CancelledError:
+        pass
+    finally:
+        active_tasks.pop("people", None)
     return {"message":"People Scrapped Succesfully"}
 
 #generating notes
 @app.post("/generate-notes")
-def generate_notes():
-    notes_workflow.invoke({},config={"configurable":{"thread_id":str(uuid.uuid4())}})
+async def generate_notes():
+    await manager.broadcast("generating custom notes...", "info")
+    loop = asyncio.get_event_loop()
+    task = loop.run_in_executor(global_executor, lambda: notes_workflow.invoke({},config={"configurable":{"thread_id":str(uuid.uuid4())}}))
+    active_tasks["notes"] = task
+    try:
+        await task
+        await manager.broadcast("notes generated", "success")
+    except asyncio.CancelledError:
+        pass
+    finally:
+        active_tasks.pop("notes", None)
     return {"message": "Notes generated successfully"}
 
 #getting the notes for reviewing

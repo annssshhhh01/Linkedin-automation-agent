@@ -12,7 +12,7 @@ sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
 from database.connection import session
 from database.models import Job, Companies
 
-async def main():
+async def main(manager=None):
     async with async_playwright() as p:
         browser= await p.chromium.launch(headless=False) # headless=false means the browser ui will show and we can see each step 
         page=await browser.new_page()
@@ -23,10 +23,14 @@ async def main():
         location=os.getenv("Location")
         
         for role in roles:
+            if manager:
+                await manager.broadcast(f"scraping {role}...", "info")
             url = f"https://www.linkedin.com/jobs/search/?keywords={role}&location={location}&f_TPR=r86400"
             await page.goto(url)
             await human_delay()
             job_cards=await page.query_selector_all('li[data-occludable-job-id]')
+            if manager:
+                await manager.broadcast(f"found {len(job_cards)} cards for {role}", "success")
             print(f"Found {len(job_cards)} cards for role: {role}")
             for card in job_cards:
                     await card.scroll_into_view_if_needed() #these two lines are very important as linkedin use lazy loading thus it only loads first seven job so for the next jobs to be able to render we will use .sleep(2) or anything or it load the strong for every job
@@ -77,7 +81,10 @@ async def main():
                                     role=title)
                          db.add(job_record)
                          db.commit()
+
                     db.close()     
+                    if manager:
+                        await manager.broadcast(f"stored: {title} at {company}", "info")
                     
                     print({
                         "job-id":job_id,

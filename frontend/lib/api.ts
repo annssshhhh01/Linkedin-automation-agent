@@ -11,7 +11,7 @@ export const getJobs = async () => {
 };
 
 export const approveJob = async (data: {
-  decision: { job_id: number; status: string };
+  decisions: { [key: number | string]: boolean };
 }) => {
   return API.post("/approved_jobs", data);
 };
@@ -34,6 +34,7 @@ export const scoreJobs = () => API.post("/scoring_jobs");
 export const scrapePeople = () => API.post("/scrape-people");
 export const generateNotes = () => API.post("/generate-notes");
 export const sendConnections = () => API.post("/send-connection");
+export const cancelAction = (actionName: string) => API.post(`/cancel-action/${actionName}`);
 
 // WEBSOCKET
 export const createTerminalWebSocket = (): WebSocket => {

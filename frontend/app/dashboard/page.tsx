@@ -13,6 +13,7 @@ import {
   scrapePeople,
   generateNotes,
   sendConnections,
+  cancelAction,
 } from "@/lib/api";
 
 type Job = {
@@ -106,7 +107,9 @@ export default function Dashboard() {
   };
 
   const handleApprove = async (jobId: number) => {
-    await approveJob({ decision: { job_id: jobId, status: "approved" } });
+    // The backend expects: { "decisions": { "10": true } }
+    const pld = { decisions: { [jobId]: true } };
+    await approveJob(pld);
     setJobs((prev) =>
       prev.map((j) => (j.id === jobId ? { ...j, status: "approved" } : j))
     );
@@ -126,11 +129,24 @@ export default function Dashboard() {
   };
 
   const runPipelineAction = async (name: string, fn: () => Promise<unknown>) => {
+    // If clicking a running action, abort it
+    if (runningAction === name) {
+      try {
+        await cancelAction(name);
+      } catch (err) {
+        console.error("Failed to cancel action", err);
+      }
+      setRunningAction(null);
+      return;
+    }
+
     setRunningAction(name);
     try {
       await fn();
       if (name === "scrape" || name === "score") await fetchJobs();
       if (name === "notes") await fetchNotes();
+    } catch {
+      // Aborts will throw unhandled rejections if we don't catch them
     } finally {
       setRunningAction(null);
     }
@@ -373,26 +389,38 @@ export default function Dashboard() {
                   { key: "people", label: "find people", fn: () => scrapePeople() },
                   { key: "notes", label: "generate notes", fn: () => generateNotes() },
                   { key: "send", label: "send connections", fn: () => sendConnections() },
-                ].map((action) => (
-                  <button
-                    key={action.key}
-                    className={`dash-abtn ${action.key === "scrape" ? "primary" : ""}`}
-                    disabled={runningAction !== null}
-                    onClick={() => runPipelineAction(action.key, action.fn)}
-                    style={runningAction !== null ? { opacity: 0.5 } : {}}
-                  >
-                    {runningAction === action.key ? (
-                      <>
-                        <span className="dash-spinner" /> running...
-                      </>
-                    ) : (
-                      <>
-                        {action.key === "scrape" ? "▶ " : ""}{action.label}
-                        <span className="dash-abtn-arrow">→</span>
-                      </>
-                    )}
-                  </button>
-                ))}
+                ].map((action) => {
+                  const isRunning = runningAction === action.key;
+                  const isOtherRunning = runningAction !== null && !isRunning;
+
+                  return (
+                    <button
+                      key={action.key}
+                      className={`dash-abtn ${action.key === "scrape" ? "primary" : ""}`}
+                      disabled={isOtherRunning}
+                      onClick={() => runPipelineAction(action.key, action.fn)}
+                      style={
+                        isOtherRunning
+                          ? { opacity: 0.5 }
+                          : isRunning
+                          ? { background: "#3f1c1c", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }
+                          : {}
+                      }
+                    >
+                      {isRunning ? (
+                        <>
+                          <span className="dash-spinner" style={{ borderTopColor: "#f87171" }} />
+                          <span style={{ marginLeft: 6 }}>stop / abort</span>
+                        </>
+                      ) : (
+                        <>
+                          {action.key === "scrape" ? "▶ " : ""}{action.label}
+                          <span className="dash-abtn-arrow">→</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
