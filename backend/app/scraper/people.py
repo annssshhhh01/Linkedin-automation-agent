@@ -1,9 +1,9 @@
 
 from app.database.connection import session
 from app.database.models import People, Job, Companies
-from scraper.config import BAD_POSITIONS, ALUMNI_TECH_PRIORITY,HR_KEYWORDS
+from app.scraper.config import BAD_POSITIONS, ALUMNI_TECH_PRIORITY,HR_KEYWORDS
 from playwright_stealth import Stealth
-from scraper.auth import human_delay, load_cookies
+from app.scraper.auth import human_delay, load_cookies
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from urllib.parse import quote #it handles all special character and instead of space insert %20 so it matches with the url
