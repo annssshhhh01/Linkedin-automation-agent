@@ -1,6 +1,6 @@
 from app.agent.state import AgentState
 from app.database.models import resume_embeding
-from app.database.connection import session
+from app.database.connection import sessionlocal
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -18,7 +18,7 @@ def embeded_resume():
     chunks=splitter.split_documents(documents)
 
     embedding=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    db=session
+    db=sessionlocal()
     for chunk in chunks:
         vector=embedding.embed_query(chunk.page_content)
         record=resume_embeding(content=chunk.page_content,embedding=vector)

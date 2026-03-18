@@ -9,7 +9,7 @@ load_dotenv()
 
 import sys
 sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
-from database.connection import session
+from database.connection import sessionlocal
 from database.models import Job, Companies
 
 async def main(manager=None):
@@ -62,7 +62,7 @@ async def main(manager=None):
                     else:
                          jd="Discription not found"     
                     # now we will store all the data in postgre
-                    db=session
+                    db=sessionlocal()
                     existing_company=db.query(Companies).filter(Companies.name==company).first() #we use first so wheneverit found out the company name then it stop it is like limits in db
                     if not existing_company: 
                          company_record=Companies(name=company)

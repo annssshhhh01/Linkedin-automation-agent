@@ -1,7 +1,7 @@
 from playwright_stealth import Stealth
 from scraper.auth import human_delay, load_cookies
 from playwright.async_api import async_playwright
-from app.database.connection import session
+from app.database.connection import sessionlocal
 from app.database.models import People,outreach
 import asyncio
 async def main():
@@ -11,7 +11,7 @@ async def main():
         await load_cookies(page)
         stealth=Stealth()
         await stealth.apply_stealth_async(page)
-        db=session
+        db=sessionlocal()
         #fetching the linkedin url of people from people
         approved=db.query(outreach,People).join(People).filter(outreach.human_approved=="Approved",outreach.status == "pending").all()
         for outreach_record,people in approved:

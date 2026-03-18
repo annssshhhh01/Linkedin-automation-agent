@@ -1,5 +1,5 @@
 
-from app.database.connection import session
+from app.database.connection import sessionlocal
 from app.database.models import People, Job, Companies
 from app.scraper.config import BAD_POSITIONS, ALUMNI_TECH_PRIORITY,HR_KEYWORDS
 from playwright_stealth import Stealth
@@ -63,7 +63,7 @@ async def find_hr(page,company_name,company_id,db):
 
 #this is mainly for alumni 
 async def find_people(page, company_name, company_id):
-    db = session
+    db = sessionlocal()
     company_slug = company_name.lower().replace(" ", "").replace("&", "")
     url = f"https://www.linkedin.com/company/{company_slug}/people/?facetSchool={college_id}"
     await human_delay()
@@ -140,7 +140,7 @@ async def main():
         stealth = Stealth()
         await stealth.apply_stealth_async(page)
         await load_cookies(page)
-        db = session
+        db = sessionlocal()
         # 1-at first what we need to to make a list of all the companies which user has approved so for that we will query in the db the normal query could be SELECT * from jobs / join companies on Jobs.companies.id=companies.id/ where job.status=="approved"
 
         # since we are using sqlachemy so what dont need any kind of query or foreign key to specifiy it sqlachemy auto uses foreign key to join

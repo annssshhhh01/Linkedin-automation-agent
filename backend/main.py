@@ -1,20 +1,22 @@
-"""this main.py consist of all the endpoints""" 
+"""this main.py consist of all the endpoints"""
+
 import uuid
 import json
 from typing import List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.scraper.people import main as scrape_people_main
-from app.database.connection import session
+from app.database.connection import get_db
 from app.scraper.jobs import main as scrape_jobs_main
 from app.agent.api_graph import score_workflow, notes_workflow
-from app.agent.nodes import processing_human_approved_job,processing_note
-from app.database.models import Job, Companies, People, outreach
+from app.agent.nodes import processing_human_approved_job, processing_note
+from app.database.models import Job, Companies, People, outreach, User
 from pydantic import BaseModel
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from app.scraper.connections import main as connection_main
+from app.auth import hash_password, verify_password, create_token, get_current_user
 
 # Global executor and future tracking for cancellable tasks
 global_executor = ThreadPoolExecutor(max_workers=5)
@@ -22,10 +24,10 @@ active_tasks = {}
 active_flags = {}
 
 from app.scraper.connections import main as connection_main
-load_dotenv()
-app=FastAPI()
 
-# CORS middleware for frontend
+load_dotenv()
+app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -34,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===== WebSocket Connection Manager =====
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -54,71 +56,121 @@ class ConnectionManager:
             except:
                 pass
 
+
 manager = ConnectionManager()
+
 
 @app.websocket("/ws/terminal")
 async def websocket_terminal(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        await websocket.send_text(json.dumps({
-            "message": "Welcome to CareerPilot Terminal v1.0",
-            "type": "success"
-        }))
-        await websocket.send_text(json.dumps({
-            "message": "Backend connected. All systems operational.",
-            "type": "system"
-        }))
+        await websocket.send_text(
+            json.dumps(
+                {"message": "Welcome to CareerPilot Terminal v1.0", "type": "success"}
+            )
+        )
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "message": "Backend connected. All systems operational.",
+                    "type": "system",
+                }
+            )
+        )
         while True:
             # Keep connection alive, listen for any client messages
             data = await websocket.receive_text()
-            await websocket.send_text(json.dumps({
-                "message": f"Received: {data}",
-                "type": "info"
-            }))
+            await websocket.send_text(
+                json.dumps({"message": f"Received: {data}", "type": "info"})
+            )
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+
 @app.get("/")
 def root():
-    return {"message":"AI Powered Career Outreach"}
+    return {"message": "AI Powered Career Outreach"}
+
 
 @app.get("/health")
 def health():
-    return {"status":" 200 OK"}
+    return {"status": " 200 OK"}
 
-#fetching jobs and sending it to user 
+
+class RegisterBody(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/register")
+def register(body: RegisterBody,db=Depends(get_db)):
+    try:
+        existing = db.query(User).filter(User.email == body.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        user = User(email=body.email, hashed_password=hash_password(body.password))
+        db.add(user)
+        db.commit()
+    finally:
+        db.close()
+    return {"message": "User created successfully"}
+
+
+@app.post("/login")
+def login(body: RegisterBody,db=Depends(get_db)):
+    try:
+        user = db.query(User).filter(User.email == body.email).first()
+    finally:
+        db.close()
+    if not user or not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"access_token": create_token(user.id), "token_type": "bearer"}
+
+
+# fetching jobs and sending it to user
 @app.get("/jobs")
-def get_job():
-    db=session
-    jobs=db.query(Job,Companies).join(Companies).filter(Job.company_id==Companies.id).all()
-    answer=[{"id":j.id,
-            "role":j.role,
-            "matching_score":j.matching_score,
-            "matching_reason":j.match_reason,
+def get_job(db=Depends(get_db)):
+    jobs = (
+        db.query(Job, Companies)
+        .join(Companies)
+        .filter(Job.company_id == Companies.id)
+        .all()
+    )
+    answer = [
+        {
+            "id": j.id,
+            "role": j.role,
+            "matching_score": j.matching_score,
+            "matching_reason": j.match_reason,
             "status": j.status_i_approved,
             "company": c.name,
-            "location":j.location}
-        for j,c in jobs]
-    db.close()
-    return {"jobs":answer}
+            "location": j.location,
+        }
+        for j, c in jobs
+    ]
+    return {"jobs": answer}
 
 
-#before sending the approved data we need to check it the data is valid so we will ue pydantic for that
+# before sending the approved data we need to check it the data is valid so we will ue pydantic for that
 class JobApproval(BaseModel):
-    decisions:dict
+    decisions: dict
 
-@app.post("/approved_jobs") 
-#in swagger to test this it should be
+
+@app.post("/approved_jobs")
+# in swagger to test this it should be
 #  #{
 #   "decisions": {
 #     "job_id": true
 #   }
 # }
-def approved_job(body:JobApproval):
-    processing_human_approved_job(body.decisions)   #note that we are handling the approved job from the api end points only and not from graph 
-    return {"message":"Job Updated"}
+def approved_job(body: JobApproval):
+    processing_human_approved_job(
+        body.decisions
+    )  # note that we are handling the approved job from the api end points only and not from graph
+    return {"message": "Job Updated"}
 
-@app.post("/cancel-action/{action_name}")   
+
+@app.post("/cancel-action/{action_name}")
 async def cancel_action(action_name: str):
     if action_name in active_tasks:
         task = active_tasks[action_name]
@@ -128,12 +180,15 @@ async def cancel_action(action_name: str):
         return {"message": f"{action_name} stopped"}
     return {"message": "No active task found"}
 
-#scrapping job logic
-@app.post("/scrape-jobs") #celery+redis
+
+# scrapping job logic
+@app.post("/scrape-jobs")  # celery+redis
 async def scrap_jobs():
     await manager.broadcast("starting job scraper...", "info")
     loop = asyncio.get_event_loop()
-    task = loop.run_in_executor(global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager)))
+    task = loop.run_in_executor(
+        global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager))
+    )
     active_tasks["scrape"] = task
     try:
         await task
@@ -142,14 +197,20 @@ async def scrap_jobs():
         pass
     finally:
         active_tasks.pop("scrape", None)
-    return {"message":"Scraping Started"}
+    return {"message": "Scraping Started"}
 
-#scoring the jobs
+
+# scoring the jobs
 @app.post("/scoring_jobs")
 async def scoring_jobs():
     await manager.broadcast("scoring jobs...", "info")
     loop = asyncio.get_event_loop()
-    task = loop.run_in_executor(global_executor, lambda: score_workflow.invoke({},config={"configurable":{"thread_id":str(uuid.uuid4())}}))
+    task = loop.run_in_executor(
+        global_executor,
+        lambda: score_workflow.invoke(
+            {}, config={"configurable": {"thread_id": str(uuid.uuid4())}}
+        ),
+    )
     active_tasks["score"] = task
     try:
         await task
@@ -158,14 +219,17 @@ async def scoring_jobs():
         pass
     finally:
         active_tasks.pop("score", None)
-    return {"message":"Scoring Complete"}
+    return {"message": "Scoring Complete"}
 
-#scraping person
+
+# scraping person
 @app.post("/scrape-people")
 async def scrape_people():
     await manager.broadcast("scraping people...", "info")
     loop = asyncio.get_event_loop()
-    task = loop.run_in_executor(global_executor, lambda: asyncio.run(scrape_people_main()))
+    task = loop.run_in_executor(
+        global_executor, lambda: asyncio.run(scrape_people_main())
+    )
     active_tasks["people"] = task
     try:
         await task
@@ -174,14 +238,20 @@ async def scrape_people():
         pass
     finally:
         active_tasks.pop("people", None)
-    return {"message":"People Scrapped Succesfully"}
+    return {"message": "People Scrapped Succesfully"}
 
-#generating notes
+
+# generating notes
 @app.post("/generate-notes")
 async def generate_notes():
     await manager.broadcast("generating custom notes...", "info")
     loop = asyncio.get_event_loop()
-    task = loop.run_in_executor(global_executor, lambda: notes_workflow.invoke({},config={"configurable":{"thread_id":str(uuid.uuid4())}}))
+    task = loop.run_in_executor(
+        global_executor,
+        lambda: notes_workflow.invoke(
+            {}, config={"configurable": {"thread_id": str(uuid.uuid4())}}
+        ),
+    )
     active_tasks["notes"] = task
     try:
         await task
@@ -192,26 +262,42 @@ async def generate_notes():
         active_tasks.pop("notes", None)
     return {"message": "Notes generated successfully"}
 
-#getting the notes for reviewing
+
+# getting the notes for reviewing
 @app.get("/fetching-notes")
-def fetching_notes():
-    db=session
-    outreach_notes=db.query(outreach, People, Job).join(People).join(Job).all()
-    result=[{"id":o.id,"job_id":j.job_id,"note":o.note,"status":o.status,"Human Approval":o.human_approved,"Edited Note":o.edited_note,"Name":p.name,"Position":p.position,"Job Role":j.role} for o,p,j in outreach_notes]
-    db.close()
-    return{"outreach":result}
+def fetching_notes(db=Depends(get_db)):
+    outreach_notes = db.query(outreach, People, Job).join(People).join(Job).all()
+    result = [
+        {
+            "id": o.id,
+            "job_id": j.job_id,
+            "note": o.note,
+            "status": o.status,
+            "Human Approval": o.human_approved,
+            "Edited Note": o.edited_note,
+            "Name": p.name,
+            "Position": p.position,
+            "Job Role": j.role,
+        }
+        for o, p, j in outreach_notes
+    ]
+    return {"outreach": result}
 
+    # noteApproval
 
-    #noteApproval
 
 class NoteApproval(BaseModel):
-    note_decision:dict
+    note_decision: dict
+
 
 @app.post("/approved-note-generation")
-def approved_note(body:NoteApproval):
+def approved_note(body: NoteApproval):
     processing_note(body.note_decision)
-    return {"message":"Your Edited/Approved note is being stored succesfully"}
- # sending connections to the person selected or approved
+    return {"message": "Your Edited/Approved note is being stored succesfully"}
+
+
+# sending connections to the person selected or approved
+
 
 @app.post("/send-connection")
 async def send_connection():

@@ -1,7 +1,7 @@
 from langchain_groq import ChatGroq
 from app.database.models import Job,People,Companies,outreach
 from langgraph.types import interrupt
-from app.database.connection import session
+from app.database.connection import sessionlocal
 from sqlalchemy import select # it is used to fetch the db
 from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt,hr_note_prompt,employee_note_prompt
 from .state import AgentState
@@ -57,8 +57,8 @@ def resume_parser(state:AgentState):
 def matching_score(state:AgentState):
     pointing_the_data=select(Job.job_id,Job.key_requirements)  # it will prepare the query but not execute it the query would be "Select key_requirements from JOB"
     resume=state["resume"]
-    db=session
-    result=session.execute(pointing_the_data)
+    db=sessionlocal()
+    result=sessionlocal().execute(pointing_the_data)
     fetched_jd=result.all() # this line will give us all the rows corresponding to that column and store it in a list 
     for job_id,jd in fetched_jd:
         prompt=matching_score_prompt.format(resume=resume,jd=jd)
@@ -77,7 +77,7 @@ def matching_score(state:AgentState):
 
 #now human in the loop will come which will ask the user if it approves or not
 def job_hitl(state:AgentState):
-    db=session
+    db=sessionlocal()
     matched_score=db.query(Job).filter(Job.matching_score>=60).all()
     jobs_data=[{"id":j.job_id,"role": j.role, "score": j.matching_score,"reason": j.match_reason,"company_id":j.company_id} for j in matched_score]
     return interrupt({
@@ -89,7 +89,7 @@ def job_hitl(state:AgentState):
 #this node will process and update the db when user approved the job_hitl
 
 def processing_human_approved_job(decision:dict):
-    db=session
+    db=sessionlocal()
     for job_id,approved in decision.items():# we use .items() as in dict we have 2 key value so if we dont use this then we conly fetch first one which is id:job_id and cant approve:true false
         job=db.query(Job).filter(Job.job_id==str(job_id)).first()
         if not job:
@@ -109,7 +109,7 @@ def processing_human_approved_job(decision:dict):
     db.close()           
 
 def note_generator(state:AgentState): #we are using mainly people db in this
-    db=session
+    db=sessionlocal()
     approved_job=state["jobs"]
     for job in approved_job: #job consist of id,role score
         job_id=job["id"]
@@ -154,7 +154,7 @@ def note_generator(state:AgentState): #we are using mainly people db in this
 #REVIEWING AND APPROVING THE note generated
 
 def note_hitl(state:AgentState):
-    db=session
+    db=sessionlocal()
     outreach_data=state["outreach"]
     return interrupt({                                #so what so ever human decision will be it will become the output of human_decision and most prolly it eill look like {"1":{"approved":true,"note":xyz}
         "Instruction":"Edit or Review This Note",
@@ -162,7 +162,7 @@ def note_hitl(state:AgentState):
     })
 
 def processing_note(human_decision:dict):
-    db=session
+    db=sessionlocal()
     #processing the note of which the human has approved and edit
     for outreach_id,decision in human_decision.items():
         record=db.query(outreach).filter(outreach.id==int(outreach_id)).first()

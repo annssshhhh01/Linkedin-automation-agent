@@ -13,4 +13,9 @@ class Base(DeclarativeBase):
 
 engine = create_engine(db_url,echo=True)
 sessionlocal = sessionmaker( bind=engine)  # it creates sessions so a user can add delete or update thing
-session=sessionlocal()
+def get_db():
+    db = sessionlocal()
+    try:
+        yield db
+    finally:
+        db.close()

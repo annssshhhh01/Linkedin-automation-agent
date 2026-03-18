@@ -1,11 +1,11 @@
 from app.database.models import Job,Companies,resume_embeding
 from sqlalchemy import select
-from app.database.connection import session
+from app.database.connection import sessionlocal
 from langchain_huggingface import HuggingFaceEmbeddings
 
 embedding=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 def retrieved_data(job_id,top_k=3):
-    db=session
+    db=sessionlocal()
     job,company=db.query(Job,Companies).join(Companies).filter(Job.id==job_id).first()   # it iwll join approved data tables
     query= f"experience and skill relevant to {job.role} at company {company.name}"
     embeded_query=embedding.embed_query(query)
