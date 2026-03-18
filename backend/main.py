@@ -118,8 +118,7 @@ def approved_job(body:JobApproval):
     processing_human_approved_job(body.decisions)   #note that we are handling the approved job from the api end points only and not from graph 
     return {"message":"Job Updated"}
 
-#scrapping job logic
-@app.post("/cancel-action/{action_name}")
+@app.post("/cancel-action/{action_name}")   
 async def cancel_action(action_name: str):
     if action_name in active_tasks:
         task = active_tasks[action_name]
@@ -129,7 +128,8 @@ async def cancel_action(action_name: str):
         return {"message": f"{action_name} stopped"}
     return {"message": "No active task found"}
 
-@app.post("/scrape-jobs")
+#scrapping job logic
+@app.post("/scrape-jobs") #celery+redis
 async def scrap_jobs():
     await manager.broadcast("starting job scraper...", "info")
     loop = asyncio.get_event_loop()
