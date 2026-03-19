@@ -17,7 +17,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from app.scraper.connections import main as connection_main
 from app.auth import hash_password, verify_password, create_token, get_current_user
-from app.s3 import upload_resume,download_resume
+from app.s3 import upload_resume
 
 # Global executor and future tracking for cancellable tasks
 global_executor = ThreadPoolExecutor(max_workers=5)
