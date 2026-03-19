@@ -3,7 +3,7 @@
 import uuid
 import json
 from typing import List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException,UploadFile,File
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.scraper.people import main as scrape_people_main
@@ -17,6 +17,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from app.scraper.connections import main as connection_main
 from app.auth import hash_password, verify_password, create_token, get_current_user
+from app.s3 import upload_resume,download_resume
 
 # Global executor and future tracking for cancellable tasks
 global_executor = ThreadPoolExecutor(max_workers=5)
@@ -139,6 +140,15 @@ def onboarding(body:OnBoardingBody,current_user=Depends(get_current_user),db=Dep
     return {"Message":"Onboarding Complete"}
 
     
+@app.post("/upload-resume")
+async def upload_to_s3(file:UploadFile=File(...),db=Depends(get_db),current_user=Depends(get_current_user)): #File(...) is a way to say it is not optional and you have to insert the value
+    byte=await file.read()  #.read() converts the file to raw bytes like number which is understood by computer
+    name=file.filename #it tells us the name of that file
+    url=upload_resume(file_bytes=byte,user_id=current_user.id,filename=name)
+    user=db.query(User).filter(User.id==current_user.id).first()
+    user.resume_path=url
+    db.commit()
+    return {"Success":"Document Uploaded Successfully"}    
 
 
 
