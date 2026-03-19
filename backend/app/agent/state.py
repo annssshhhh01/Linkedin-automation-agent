@@ -14,3 +14,4 @@ class AgentState(TypedDict):
     linkedin_url: Optional[str]
     outreach: Annotated[list[dict], operator.add]
     edited_text: Annotated[list[dict],operator.add]
+    user_id:int

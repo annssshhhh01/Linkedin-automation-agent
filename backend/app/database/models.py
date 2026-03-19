@@ -12,7 +12,8 @@ class User(Base):     #we need this as we are dealing with multiple users so we 
     linkedin_email = Column(String, nullable=True)
     linkedin_password = Column(String, nullable=True)
     resume_path = Column(String, nullable=True)
-    college = Column(String, nullable=True)    
+    college = Column(String, nullable=True) 
+    college_id = Column(String, nullable=True)   
 
 class Companies(Base):
     __tablename__ = "companies"

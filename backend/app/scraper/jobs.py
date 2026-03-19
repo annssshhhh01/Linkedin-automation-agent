@@ -12,7 +12,7 @@ sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
 from database.connection import sessionlocal
 from database.models import Job, Companies
 
-async def main(manager=None):
+async def main(manager=None,user_id=None):
     async with async_playwright() as p:
         browser= await p.chromium.launch(headless=False) # headless=false means the browser ui will show and we can see each step 
         page=await browser.new_page()
@@ -78,7 +78,8 @@ async def main(manager=None):
                                     company_id=company_record.id,
                                     key_requirements=jd,
                                     location=location,
-                                    role=title)
+                                    role=title,
+                                    user_id=user_id)
                          db.add(job_record)
                          db.commit()
 

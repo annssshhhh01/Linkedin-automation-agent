@@ -16,7 +16,6 @@ def hash_password(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
-# ===== JWT =====
 SECRET_KEY = os.getenv("SECRET_KEY", "changethis")
 ALGORITHM = "HS256"
 
@@ -31,14 +30,13 @@ def decode_token(token: str) -> int:
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return int(payload["sub"])
 
-# ===== Dependency =====
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User: #Depends(oauth2_scheme) is used to fetch the token and in deocde_token(we can pass Depends(oauth2_scheme) as well)
     try:
         user_id = decode_token(token)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Unauthorized")
     
     db = sessionlocal()
     user = db.query(User).filter(User.id == user_id).first()

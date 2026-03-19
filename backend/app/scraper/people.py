@@ -14,7 +14,7 @@ load_dotenv()
 
 college_id = os.getenv("COLLEGE_ID")
 
-async def find_hr(page,company_name,company_id,db):
+async def find_hr(page,company_name,company_id,db,user_id=None):
     company_slug=company_name.lower().replace(" ","-").replace("&","")   #.replace(old,new)
     for keyword in HR_KEYWORDS:
         url=f"https://www.linkedin.com/company/{company_slug}/people/?keywords={quote(keyword)}"
@@ -53,7 +53,7 @@ async def find_hr(page,company_name,company_id,db):
             for people in good_people:
                 existing_db=db.query(People).filter(People.linkedin_url==people["linkedin_url"]).first()
                 if not existing_db:
-                    inserting_data=People(name=people["name"],linkedin_url=people["linkedin_url"],is_alumni=False,position=people["position"],company_id=company_id)
+                    inserting_data=People(name=people["name"],linkedin_url=people["linkedin_url"],is_alumni=False,position=people["position"],company_id=company_id,user_id=user_id)
                     db.add(inserting_data)
                     db.commit()   
             break          
@@ -62,7 +62,7 @@ async def find_hr(page,company_name,company_id,db):
     
 
 #this is mainly for alumni 
-async def find_people(page, company_name, company_id):
+async def find_people(page, company_name, company_id,user_id=None):
     db = sessionlocal()
     company_slug = company_name.lower().replace(" ", "").replace("&", "")
     url = f"https://www.linkedin.com/company/{company_slug}/people/?facetSchool={college_id}"
@@ -128,12 +128,15 @@ async def find_people(page, company_name, company_id):
                 position=person["position"],
                 company_id=company_id,
                 is_alumni=True,
+                user_id=user_id,
+                
             )  # since we are on our college id facetschool url so everyone on this will be our alumni
             db.add(inserting_data)
             db.commit()
+            db.close()
             await human_delay()
 
-async def main():
+async def main(user_id=None):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         page = await browser.new_page()
@@ -144,9 +147,9 @@ async def main():
         # 1-at first what we need to to make a list of all the companies which user has approved so for that we will query in the db the normal query could be SELECT * from jobs / join companies on Jobs.companies.id=companies.id/ where job.status=="approved"
 
         # since we are using sqlachemy so what dont need any kind of query or foreign key to specifiy it sqlachemy auto uses foreign key to join
-        approved_jobs = (db.query(Job, Companies).join(Companies).filter(Job.status_i_approved == "Approved").all())
+        approved_jobs = (db.query(Job, Companies).join(Companies).filter(Job.status_i_approved == "Approved", Job.user_id == user_id).all())
         for (job,company) in (approved_jobs):  # approved_jobs look like Job(id=1, title="Software Engineer", company_id=1, status_i_approved="Approved"),Companies(id=1, name="Google", location="USA")
-            await find_people(page, company.name, job.company_id)
+            await find_people(page, company.name, job.company_id,job.user_id)
             await human_delay()
         db.close()    
 

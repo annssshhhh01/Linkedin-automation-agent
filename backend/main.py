@@ -58,8 +58,6 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-
-
 @app.websocket("/ws/terminal")
 async def websocket_terminal(websocket: WebSocket):
     await manager.connect(websocket)
@@ -104,24 +102,20 @@ class RegisterBody(BaseModel):
 
 @app.post("/register")
 def register(body: RegisterBody,db=Depends(get_db)):
-    try:
-        existing = db.query(User).filter(User.email == body.email).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already registered")
-        user = User(email=body.email, hashed_password=hash_password(body.password))
-        db.add(user)
-        db.commit()
-    finally:
-        db.close()
+    existing = db.query(User).filter(User.email == body.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(email=body.email, hashed_password=hash_password(body.password))
+    db.add(user)
+    db.commit()
+    db.close()
     return {"message": "User created successfully"}
 
 
 @app.post("/login")
 def login(body: RegisterBody,db=Depends(get_db)):
-    try:
-        user = db.query(User).filter(User.email == body.email).first()
-    finally:
-        db.close()
+    user = db.query(User).filter(User.email == body.email).first()
+    db.close()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"access_token": create_token(user.id), "token_type": "bearer"}
@@ -129,12 +123,8 @@ def login(body: RegisterBody,db=Depends(get_db)):
 
 # fetching jobs and sending it to user
 @app.get("/jobs")
-def get_job(db=Depends(get_db)):
-    jobs = (
-        db.query(Job, Companies)
-        .join(Companies)
-        .filter(Job.company_id == Companies.id)
-        .all()
+def get_job(db=Depends(get_db),current_user = Depends(get_current_user)): # Depends(oauth2_scheme) it will fetches all the token and return the user details of that token 
+    jobs = (db.query(Job, Companies).join(Companies).filter(Job.company_id == Companies.id,Job.user_id==current_user.id).all()
     )
     answer = [
         {
@@ -163,7 +153,7 @@ class JobApproval(BaseModel):
 #     "job_id": true
 #   }
 # }
-def approved_job(body: JobApproval):
+def approved_job(body: JobApproval,current_user = Depends(get_current_user)):
     processing_human_approved_job(
         body.decisions
     )  # note that we are handling the approved job from the api end points only and not from graph
@@ -171,7 +161,7 @@ def approved_job(body: JobApproval):
 
 
 @app.post("/cancel-action/{action_name}")
-async def cancel_action(action_name: str):
+async def cancel_action(action_name: str,current_user = Depends(get_current_user)):
     if action_name in active_tasks:
         task = active_tasks[action_name]
         task.cancel()
@@ -183,11 +173,12 @@ async def cancel_action(action_name: str):
 
 # scrapping job logic
 @app.post("/scrape-jobs")  # celery+redis
-async def scrap_jobs():
+async def scrap_jobs(current_user=Depends(get_current_user)): #we are using current user so fastapi knows if user is valid or invalid and if invalid it will through an error 
     await manager.broadcast("starting job scraper...", "info")
+    user_id = current_user.id
     loop = asyncio.get_event_loop()
     task = loop.run_in_executor(
-        global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager))
+        global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager,user_id = user_id))
     )
     active_tasks["scrape"] = task
     try:
@@ -202,13 +193,14 @@ async def scrap_jobs():
 
 # scoring the jobs
 @app.post("/scoring_jobs")
-async def scoring_jobs():
+async def scoring_jobs(current_user = Depends(get_current_user)):
     await manager.broadcast("scoring jobs...", "info")
+    
     loop = asyncio.get_event_loop()
     task = loop.run_in_executor(
         global_executor,
         lambda: score_workflow.invoke(
-            {}, config={"configurable": {"thread_id": str(uuid.uuid4())}}
+            {"user_id": current_user.id}, config={"configurable": {"thread_id": str(uuid.uuid4())}}
         ),
     )
     active_tasks["score"] = task
@@ -224,11 +216,12 @@ async def scoring_jobs():
 
 # scraping person
 @app.post("/scrape-people")
-async def scrape_people():
+async def scrape_people(current_user = Depends(get_current_user)):
     await manager.broadcast("scraping people...", "info")
+    user_id = current_user.id
     loop = asyncio.get_event_loop()
     task = loop.run_in_executor(
-        global_executor, lambda: asyncio.run(scrape_people_main())
+        global_executor, lambda: asyncio.run(scrape_people_main(user_id))
     )
     active_tasks["people"] = task
     try:
@@ -243,13 +236,13 @@ async def scrape_people():
 
 # generating notes
 @app.post("/generate-notes")
-async def generate_notes():
+async def generate_notes(current_user = Depends(get_current_user)):
     await manager.broadcast("generating custom notes...", "info")
     loop = asyncio.get_event_loop()
     task = loop.run_in_executor(
         global_executor,
         lambda: notes_workflow.invoke(
-            {}, config={"configurable": {"thread_id": str(uuid.uuid4())}}
+            {"user_id": current_user.id}, config={"configurable": {"thread_id": str(uuid.uuid4())}}
         ),
     )
     active_tasks["notes"] = task
@@ -265,8 +258,8 @@ async def generate_notes():
 
 # getting the notes for reviewing
 @app.get("/fetching-notes")
-def fetching_notes(db=Depends(get_db)):
-    outreach_notes = db.query(outreach, People, Job).join(People).join(Job).all()
+def fetching_notes(db=Depends(get_db),current_user = Depends(get_current_user)):
+    outreach_notes = db.query(outreach, People, Job).join(People).join(Job).filter(outreach.user_id==current_user.id).all()
     result = [
         {
             "id": o.id,
@@ -291,7 +284,7 @@ class NoteApproval(BaseModel):
 
 
 @app.post("/approved-note-generation")
-def approved_note(body: NoteApproval):
+def approved_note(body: NoteApproval,current_user = Depends(get_current_user)):
     processing_note(body.note_decision)
     return {"message": "Your Edited/Approved note is being stored succesfully"}
 
@@ -300,7 +293,8 @@ def approved_note(body: NoteApproval):
 
 
 @app.post("/send-connection")
-async def send_connection():
+async def send_connection(current_user = Depends(get_current_user)):
+    
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor() as pool:
         await loop.run_in_executor(pool, lambda: asyncio.run(connection_main()))
