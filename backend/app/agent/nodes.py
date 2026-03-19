@@ -1,17 +1,16 @@
 from langchain_groq import ChatGroq
-from app.database.models import Job,People,Companies,outreach
+from app.database.models import Job,People,Companies,outreach,User
 from langgraph.types import interrupt
 from app.database.connection import sessionlocal
-from sqlalchemy import select # it is used to fetch the db
 from .prompts import resume_parser_prompt,matching_score_prompt,alumni_note_prompt,hr_note_prompt,employee_note_prompt
 from .state import AgentState
 from pypdf import PdfReader
 from ..rag.retriever import retrieved_data
 from dotenv import load_dotenv
 import json
+from app.s3 import download_resume
 import os
 load_dotenv()
-pdf_path=os.getenv("RESUME_PATH")
 model=ChatGroq(model="llama-3.1-8b-instant")
 
 import re
@@ -44,7 +43,15 @@ def safe_parse_json(content: str):
 
 # it will take the resume and write it in json format so it becomes easier to match a score
 def resume_parser(state:AgentState):
-    reader=PdfReader(pdf_path)
+    db=sessionlocal()
+    user_id=state["user_id"]   #we are passing it through workflow.invoke
+    try:
+        user=db.query(User).filter(User.id==user_id).first()
+        resume_url=user.resume_path
+    finally:
+        db.close()    
+    resume_url_path=download_resume(resume_url)
+    reader=PdfReader(resume_url_path)
     resume_text=""
     for page in reader.pages:
         resume_text+=page.extract_text()
@@ -55,13 +62,11 @@ def resume_parser(state:AgentState):
 
 #it will take resume and givr you a matching score
 def matching_score(state:AgentState):
-    pointing_the_data=select(Job.job_id,Job.key_requirements)  # it will prepare the query but not execute it the query would be "Select key_requirements from JOB"
     resume=state["resume"]
     user_id=state["user_id"]
     db=sessionlocal()
     try:
-        result=sessionlocal().execute(pointing_the_data)
-        fetched_jd=result.all() # this line will give us all the rows corresponding to that column and store it in a list 
+        fetched_jd = db.query(Job.job_id, Job.key_requirements).filter(Job.user_id == user_id).all()
         for job_id,jd in fetched_jd:
             prompt=matching_score_prompt.format(resume=resume,jd=jd)
             llm_output=model.invoke(prompt)
@@ -115,9 +120,12 @@ def processing_human_approved_job(decision:dict):
 
 def note_generator(state:AgentState): #we are using mainly people db in this
     db=sessionlocal()
+
     user_id=state["user_id"]
     approved_job=state["jobs"]
     try:
+        user=db.query(User).filter(User.id==user_id).first()
+        college_name=user.college
         for job in approved_job: #job consist of id,role score
             job_id=job["id"]
             people=db.query(People).filter(People.company_id==job["company_id"],People.user_id==user_id).all()
@@ -127,7 +135,7 @@ def note_generator(state:AgentState): #we are using mainly people db in this
                 if person.is_alumni==True:
                     prompt=alumni_note_prompt.format(
                         name=person.name,
-                        college=os.getenv("COLLEGE"),
+                        college=college_name,
                         job_role=job["role"],
                         company=company.name,
                         skills=data_retrieved,
@@ -148,12 +156,12 @@ def note_generator(state:AgentState): #we are using mainly people db in this
                             company=company.name,
                             skills=data_retrieved
                         ) 
-                    response=model.invoke(prompt)
-                    generated_note=response.content
-                    exisiting_db=db.query(outreach).filter(outreach.job_id==job_id,outreach.Person_id == person.id).first()
-                    if not exisiting_db:
-                        inserting_data=outreach(job_id=job_id,Person_id=person.id,note=generated_note,user_id=user_id)
-                        db.add(inserting_data)
+                response=model.invoke(prompt)
+                generated_note=response.content
+                exisiting_db=db.query(outreach).filter(outreach.job_id==job_id,outreach.Person_id == person.id).first()
+                if not exisiting_db:
+                    inserting_data=outreach(job_id=job_id,Person_id=person.id,note=generated_note,user_id=user_id)
+                    db.add(inserting_data)
             db.commit()
     finally:        
         db.close()
