@@ -1,6 +1,6 @@
 
 from app.database.connection import sessionlocal
-from app.database.models import People, Job, Companies
+from app.database.models import People, Job, Companies,User
 from app.scraper.config import BAD_POSITIONS, ALUMNI_TECH_PRIORITY,HR_KEYWORDS
 from playwright_stealth import Stealth
 from app.scraper.auth import human_delay, load_cookies
@@ -12,7 +12,6 @@ import os
 
 load_dotenv()
 
-college_id = os.getenv("COLLEGE_ID")
 
 async def find_hr(page,company_name,company_id,db,user_id=None):
     company_slug=company_name.lower().replace(" ","-").replace("&","")   #.replace(old,new)
@@ -62,7 +61,7 @@ async def find_hr(page,company_name,company_id,db,user_id=None):
     
 
 #this is mainly for alumni 
-async def find_people(page, company_name, company_id,user_id=None):
+async def find_people(page, company_name, company_id,user_id=None,college_id=None):
     db = sessionlocal()
     company_slug = company_name.lower().replace(" ", "").replace("&", "")
     url = f"https://www.linkedin.com/company/{company_slug}/people/?facetSchool={college_id}"
@@ -111,7 +110,7 @@ async def find_people(page, company_name, company_id,user_id=None):
 
     if len(good_people) == 0:  # run if no alumni is present
         print(f"No alumni found for {company_name},searching HR..")
-        await find_hr(page, company_name, company_id, db)
+        await find_hr(page, company_name, company_id, db,user_id=user_id)
         return
 
     # -----NOW WE WILL STORE THESE DATA IN OUR PEOPLES TABLE IN DB------
@@ -133,23 +132,24 @@ async def find_people(page, company_name, company_id,user_id=None):
             )  # since we are on our college id facetschool url so everyone on this will be our alumni
             db.add(inserting_data)
             db.commit()
-            db.close()
             await human_delay()
-
+    db.close()
 async def main(user_id=None):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         page = await browser.new_page()
         stealth = Stealth()
         await stealth.apply_stealth_async(page)
-        await load_cookies(page)
+        await load_cookies(page,user_id)
         db = sessionlocal()
         # 1-at first what we need to to make a list of all the companies which user has approved so for that we will query in the db the normal query could be SELECT * from jobs / join companies on Jobs.companies.id=companies.id/ where job.status=="approved"
 
         # since we are using sqlachemy so what dont need any kind of query or foreign key to specifiy it sqlachemy auto uses foreign key to join
         approved_jobs = (db.query(Job, Companies).join(Companies).filter(Job.status_i_approved == "Approved", Job.user_id == user_id).all())
+        user=db.query(User).filter(User.id==user_id).first()
+        college_id=user.college_id
         for (job,company) in (approved_jobs):  # approved_jobs look like Job(id=1, title="Software Engineer", company_id=1, status_i_approved="Approved"),Companies(id=1, name="Google", location="USA")
-            await find_people(page, company.name, job.company_id,job.user_id)
+            await find_people(page, company.name, job.company_id,job.user_id,college_id)
             await human_delay()
         db.close()    
 

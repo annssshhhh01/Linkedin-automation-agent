@@ -18,7 +18,7 @@ async def main(manager=None,user_id=None):
         page=await browser.new_page()
         stealth=Stealth()
         await stealth.apply_stealth_async(page)
-        await load_cookies(page)
+        await load_cookies(page,user_id)
         roles=os.getenv("JOB_ROLES").split(",")
         location=os.getenv("Location")
         

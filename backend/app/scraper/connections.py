@@ -8,7 +8,7 @@ async def main(user_id=None):
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=False)
         page=await browser.new_page()
-        await load_cookies(page)
+        await load_cookies(page,user_id)
         stealth=Stealth()
         await stealth.apply_stealth_async(page)
         db=sessionlocal()
