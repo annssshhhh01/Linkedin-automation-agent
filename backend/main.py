@@ -120,6 +120,31 @@ def login(body: RegisterBody,db=Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"access_token": create_token(user.id), "token_type": "bearer"}
 
+#we will take all the necessary info from the user like college id ,name,linkedin user,pass
+class OnBoardingBody(BaseModel):
+    college:str
+    college_id:str
+    linkedin_user:str
+    linkedin_pass:str
+
+
+@app.onboarding("/onboarding")
+def onboarding(body:OnBoardingBody,current_user=Depends(get_current_user),db=Depends(get_db)):
+    user=db.query(User).filter(User.id==current_user.id).first
+    user.college=body.college
+    user.college_id=body.college_id
+    user.linkedin_email=body.linkedin_user
+    user.linkedin_password=body.linkedin_pass
+    db.commit()
+    return {"Message":"Onboarding Complete"}
+
+    
+
+
+
+
+
+
 
 # fetching jobs and sending it to user
 @app.get("/jobs")
