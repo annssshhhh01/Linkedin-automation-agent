@@ -62,7 +62,8 @@ export const approveNote = async (data: {
 };
 
 // AUTOMATION
-export const scrapeJobs = () => API.post("/scrape-jobs");
+export const scrapeJobs = (roles: string[], locations: string[]) => 
+  API.post("/scrape-jobs", { roles, locations });
 export const scoreJobs = () => API.post("/scoring_jobs");
 export const scrapePeople = () => API.post("/scrape-people");
 export const generateNotes = () => API.post("/generate-notes");

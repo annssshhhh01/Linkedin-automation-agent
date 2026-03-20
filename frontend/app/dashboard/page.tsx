@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import Terminal from "@/components/Terminal";
+import AutocompleteInput from "@/components/AutocompleteInput";
 import {
   getJobs,
   approveJob,
@@ -16,6 +18,7 @@ import {
   cancelAction,
   uploadResume,
 } from "@/lib/api";
+import { indianColleges } from "@/lib/indianColleges";
 
 type Job = {
   id: number;
@@ -54,15 +57,50 @@ export default function Dashboard() {
   // Config state
   const [roles, setRoles] = useState<string[]>([]);
   const [roleInput, setRoleInput] = useState("");
-  const [location, setLocation] = useState("");
+  const [locations, setLocations] = useState<string[]>([]);
+  const [locInput, setLocInput] = useState("");
   const [college, setCollege] = useState("");
   const [collegeId, setCollegeId] = useState("");
   const [maxConn, setMaxConn] = useState("15");
   const [resumeName, setResumeNameState] = useState<string | null>(null);
 
   // Suggestions state
-  const roleSuggestions = ["AI Engineer", "Backend Engineer", "Frontend Developer", "Full Stack Developer", "Data Scientist", "Product Manager", "DevOps Engineer", "Machine Learning Engineer"];
-  const [locSuggestions, setLocSuggestions] = useState<string[]>([]);
+  const roleSuggestions = [
+    "AI Engineer", "Android Developer", "API Developer", "Application Engineer",
+    "Backend Engineer", "Blockchain Developer", "Business Analyst", "Business Intelligence Developer",
+    "Cloud Architect", "Cloud Engineer", "Compiler Engineer", "Computer Vision Engineer",
+    "Cybersecurity Analyst", "Data Analyst", "Data Engineer", "Data Scientist",
+    "Database Administrator", "Deep Learning Engineer", "DevOps Engineer", "DevSecOps Engineer",
+    "Embedded Systems Engineer", "Engineering Manager", "ETL Developer",
+    "Frontend Developer", "Full Stack Developer", "Game Developer",
+    "Graphics Engineer", "Hardware Engineer", "Infrastructure Engineer",
+    "iOS Developer", "IT Support Engineer",
+    "Java Developer", "Machine Learning Engineer", "MLOps Engineer", "Mobile Developer",
+    "Natural Language Processing Engineer", "Network Engineer", "Node.js Developer",
+    "Platform Engineer", "Product Manager", "Python Developer",
+    "QA Engineer", "Quality Assurance Analyst", "React Developer",
+    "Robotics Engineer", "Ruby Developer", "Rust Developer",
+    "Salesforce Developer", "Scrum Master", "Security Engineer",
+    "Site Reliability Engineer", "Software Architect", "Software Developer",
+    "Software Engineer", "Solutions Architect", "Systems Engineer",
+    "Technical Lead", "Technical Program Manager", "Technical Writer",
+    "Test Automation Engineer", "UI Designer", "UI/UX Designer",
+    "Unity Developer", "UX Researcher", "VP of Engineering", "Web Developer",
+  ];
+  
+  const indianLocations = [
+    // Major Tech Hubs & Cities
+    "Bangalore", "Gurgaon", "Pune", "Hyderabad", "Noida", "Mumbai", 
+    "Chennai", "Kolkata", "Ahmedabad", "Chandigarh", "Delhi NCR", "Indore",
+    "Jaipur", "Kochi", "Surat", "Bhubaneswar", "Trivandrum", "Coimbatore",
+    // States
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", 
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", 
+    "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", 
+    "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", 
+    "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", 
+    "India"
+  ];
   const [colSuggestions, setColSuggestions] = useState<string[]>([]);
 
   // Pipeline state
@@ -97,7 +135,13 @@ export default function Dashboard() {
         if (savedRoles.trim() !== "") setRoles([savedRoles]);
       }
     }
-    if (savedLocation) setLocation(savedLocation);
+    if (savedLocation) {
+      try {
+        setLocations(JSON.parse(savedLocation));
+      } catch {
+        if (savedLocation.trim() !== "") setLocations([savedLocation]);
+      }
+    }
     if (savedCollege) setCollege(savedCollege);
     if (savedCollegeId) setCollegeId(savedCollegeId);
 
@@ -108,46 +152,20 @@ export default function Dashboard() {
   // Save preferences to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("linkedOutRoles", JSON.stringify(roles));
-    localStorage.setItem("linkedOutLocation", location);
+    localStorage.setItem("linkedOutLocation", JSON.stringify(locations));
     localStorage.setItem("linkedOutCollege", college);
     localStorage.setItem("linkedOutCollegeId", collegeId);
-  }, [roles, location, college, collegeId]);
+  }, [roles, locations, college, collegeId]);
 
-  // Dynamic Location Suggestions
+  // Dynamic College Suggestions (using static list for accurate LinkedIn matching)
   useEffect(() => {
-    if (location.trim().length < 2) {
-      setLocSuggestions([]);
-      return;
-    }
-    const delayId = setTimeout(async () => {
-      try {
-        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=5`);
-        const data = await res.json();
-        if (data.results) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setLocSuggestions(data.results.map((r: any) => `${r.name}, ${r.admin1 ? r.admin1 + ', ' : ''}${r.country}`));
-        }
-      } catch (err) { }
-    }, 400);
-    return () => clearTimeout(delayId);
-  }, [location]);
-
-  // Dynamic College Suggestions
-  useEffect(() => {
-    if (college.trim().length < 3) {
+    if (college.trim().length < 2) {
       setColSuggestions([]);
       return;
     }
-    const delayId = setTimeout(async () => {
-      try {
-        const res = await fetch(`http://universities.hipolabs.com/search?name=${encodeURIComponent(college)}`);
-        const data = await res.json();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const names = data.map((u: any) => u.name);
-        setColSuggestions(Array.from(new Set(names)).slice(0, 10) as string[]);
-      } catch (err) { }
-    }, 400);
-    return () => clearTimeout(delayId);
+    const filterTerm = college.toLowerCase();
+    const matches = indianColleges.filter(c => c.toLowerCase().includes(filterTerm));
+    setColSuggestions(matches.slice(0, 15));
   }, [college]);
 
   const checkHealth = async () => {
@@ -181,43 +199,59 @@ export default function Dashboard() {
   };
 
   const handleApprove = async (jobId: number) => {
-    const pld = { decisions: { [jobId]: true } };
-    await approveJob(pld);
-    setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, status: "approved" } : j))
-    );
+    try {
+      const pld = { decisions: { [jobId]: true } };
+      await approveJob(pld);
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: "approved" } : j))
+      );
+      toast.success("Job approved!");
+    } catch {
+      toast.error("Failed to approve job");
+    }
   };
 
   const handleReject = (jobId: number) => {
     setJobs((prev) =>
       prev.map((j) => (j.id === jobId ? { ...j, status: "rejected" } : j))
     );
+    toast.success("Job rejected", { icon: "✕" });
   };
 
   const handleNoteApprove = async (noteId: number) => {
-    await approveNote({ note_decision: { id: noteId, status: "approved" } });
-    setNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, "Human Approval": "approved" } : n))
-    );
+    try {
+      await approveNote({ note_decision: { id: noteId, status: "approved" } });
+      setNotes((prev) =>
+        prev.map((n) => (n.id === noteId ? { ...n, "Human Approval": "approved" } : n))
+      );
+      toast.success("Note approved!");
+    } catch {
+      toast.error("Failed to approve note");
+    }
   };
 
   const runPipelineAction = async (name: string, fn: () => Promise<unknown>) => {
     if (runningAction === name) {
       try {
         await cancelAction(name);
+        toast.success(`Cancelled ${name}`);
       } catch (err) {
         console.error("Failed to cancel action", err);
+        toast.error(`Failed to cancel ${name}`);
       }
       setRunningAction(null);
       return;
     }
 
     setRunningAction(name);
+    const tId = toast.loading(`Running action: ${name}...`);
     try {
       await fn();
       if (name === "scrape" || name === "score") await fetchJobs();
       if (name === "notes") await fetchNotes();
+      toast.success(`${name} completed successfully!`, { id: tId });
     } catch {
+      toast.error(`${name} failed or was cancelled`, { id: tId });
       // Aborts will throw unhandled rejections if we don't catch them
     } finally {
       setRunningAction(null);
@@ -239,11 +273,14 @@ export default function Dashboard() {
     inp.onchange = async (e) => {
       const f = (e.target as HTMLInputElement).files?.[0];
       if (f) {
+        const tId = toast.loading("Uploading resume...");
         try {
           await uploadResume(f);
           setResumeNameState(f.name);
+          toast.success("Resume uploaded successfully!", { id: tId });
         } catch {
           console.error("Resume upload failed");
+          toast.error("Failed to upload resume", { id: tId });
         }
       }
     };
@@ -288,6 +325,14 @@ export default function Dashboard() {
       my = e.clientY;
       cursor.style.left = `${mx}px`;
       cursor.style.top = `${my}px`;
+
+      // 3D Parallax for cards
+      const px = mx / window.innerWidth;
+      const py = my / window.innerHeight;
+      const rxDeg = (py - 0.5) * -10;
+      const ryDeg = (px - 0.5) * 10;
+      document.documentElement.style.setProperty('--rot-x', `${rxDeg}deg`);
+      document.documentElement.style.setProperty('--rot-y', `${ryDeg}deg`);
     };
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -415,7 +460,7 @@ export default function Dashboard() {
               borderRight: "1px solid var(--color-green-border)",
               display: "flex", flexDirection: "column",
               overflowY: "auto",
-              background: "rgba(0,8,3,0.6)",
+              background: "rgba(10,10,18,0.6)",
             }}
           >
             {/* Resume upload */}
@@ -437,7 +482,7 @@ export default function Dashboard() {
             <div className="dash-panel-section">
               <div className="dash-plabel">config</div>
               
-              {/* Roles - Tag Input */}
+              {/* Roles - Tag Input with Autocomplete */}
               <div className="dash-config-row">
                 <div className="dash-config-label">target roles</div>
                 <div className="dash-tags-container" style={{
@@ -464,49 +509,68 @@ export default function Dashboard() {
                     </span>
                   ))}
                 </div>
-                <input
-                  className="dash-config-input"
-                  placeholder="Type a role and press Enter..."
+                <AutocompleteInput
+                  suggestions={roleSuggestions.filter(s => !roles.includes(s))}
                   value={roleInput}
-                  onChange={(e) => setRoleInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && roleInput.trim()) {
-                      e.preventDefault();
-                      if (!roles.includes(roleInput.trim())) setRoles([...roles, roleInput.trim()]);
-                      setRoleInput("");
-                    }
+                  onChange={setRoleInput}
+                  onSelect={(val) => {
+                    if (!roles.includes(val)) setRoles([...roles, val]);
+                    setRoleInput("");
                   }}
-                  list="role-suggestions"
+                  placeholder="Type a role (e.g. Backend)..."
                 />
-                <datalist id="role-suggestions">
-                  {roleSuggestions.map(s => <option key={s} value={s} />)}
-                </datalist>
               </div>
               <div className="dash-config-row">
                 <div className="dash-config-label">location</div>
-                <input
-                  className="dash-config-input"
-                  placeholder="e.g. San Francisco"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  list="loc-suggestions"
+                <div className="dash-tags-container" style={{
+                  display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px",
+                  padding: locations.length > 0 ? "4px 0" : "0"
+                }}>
+                  {locations.map(loc => (
+                    <span key={loc} className="dash-tag" style={{
+                      background: "rgba(6, 182, 212, 0.15)",
+                      color: "var(--color-cyan-accent)",
+                      padding: "2px 8px",
+                      borderRadius: "12px",
+                      fontSize: "10px",
+                      fontFamily: "var(--font-mono)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      {loc}
+                      <button 
+                        onClick={() => setLocations(l => l.filter(x => x !== loc))}
+                        style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "12px", padding: 0 }}
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+                <AutocompleteInput
+                  suggestions={indianLocations.filter(s => !locations.includes(s))}
+                  value={locInput}
+                  onChange={setLocInput}
+                  onSelect={(val) => {
+                    if (!locations.includes(val)) setLocations([...locations, val]);
+                    setLocInput("");
+                  }}
+                  placeholder="Type a state or city (e.g. Bangalore)..."
                 />
-                <datalist id="loc-suggestions">
-                  {locSuggestions.map(s => <option key={s} value={s} />)}
-                </datalist>
               </div>
               <div className="dash-config-row">
-                <div className="dash-config-label">college name</div>
-                <input
-                  className="dash-config-input"
-                  placeholder="Type to search colleges..."
+                <div className="dash-config-label" style={{ display: 'flex', flexDirection: 'column', gap: '4px', textTransform: 'none' }}>
+                  <span style={{ textTransform: 'uppercase' }}>college name</span>
+                  <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>
+                    *If not listed, type exactly as on LinkedIn
+                  </span>
+                </div>
+                <AutocompleteInput
+                  suggestions={colSuggestions}
                   value={college}
-                  onChange={(e) => setCollege(e.target.value)}
-                  list="college-suggestions"
+                  onChange={setCollege}
+                  onSelect={setCollege}
+                  placeholder="Type to search colleges..."
                 />
-                <datalist id="college-suggestions">
-                  {colSuggestions.map(s => <option key={s} value={s} />)}
-                </datalist>
               </div>
               <div className="dash-config-row">
                 <div className="dash-config-label">linkedin college id</div>
@@ -539,15 +603,15 @@ export default function Dashboard() {
                   <div className="dash-slabel">jobs scraped</div>
                 </div>
                 <div className="dash-scard">
-                  <div className="dash-snum">{approvedCount}</div>
+                  <div className="dash-snum" style={{ color: "var(--color-cyan-accent)", textShadow: "0 0 12px var(--color-cyan-glow)" }}>{approvedCount}</div>
                   <div className="dash-slabel">approved</div>
                 </div>
                 <div className="dash-scard">
-                  <div className="dash-snum">{notes.length}</div>
+                  <div className="dash-snum" style={{ color: "var(--color-violet-accent)", textShadow: "0 0 12px var(--color-violet-glow)" }}>{notes.length}</div>
                   <div className="dash-slabel">people found</div>
                 </div>
                 <div className="dash-scard">
-                  <div className="dash-snum" style={{ color: "#f0abfc" }}>{pendingNotes}</div>
+                  <div className="dash-snum" style={{ color: "var(--color-amber-accent)", textShadow: "0 0 12px rgba(251,191,36,0.3)" }}>{pendingNotes}</div>
                   <div className="dash-slabel">notes pending</div>
                 </div>
               </div>
@@ -558,7 +622,7 @@ export default function Dashboard() {
               <div className="dash-plabel">pipeline</div>
               <div className="dash-action-list">
                 {[
-                  { key: "scrape", label: "scrape jobs", fn: () => scrapeJobs() },
+                  { key: "scrape", label: "scrape jobs", fn: () => scrapeJobs(roles, locations) },
                   { key: "score", label: "score & match", fn: () => scoreJobs() },
                   { key: "people", label: "find people", fn: () => scrapePeople() },
                   { key: "notes", label: "generate notes", fn: () => generateNotes() },
