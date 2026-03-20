@@ -12,22 +12,25 @@ sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
 from database.connection import sessionlocal
 from database.models import Job, Companies
 
-async def main(manager=None,user_id=None):
+async def main(manager=None, user_id=None, roles=None, locations=None):
     async with async_playwright() as p:
         browser= await p.chromium.launch(headless=False) # headless=false means the browser ui will show and we can see each step 
         page=await browser.new_page()
         stealth=Stealth()
         await stealth.apply_stealth_async(page)
         await load_cookies(page,user_id)
-        roles=os.getenv("JOB_ROLES").split(",")
-        location=os.getenv("Location")
         
-        for role in roles:
-            if manager:
-                await manager.broadcast(f"scraping {role}...", "info")
-            url = f"https://www.linkedin.com/jobs/search/?keywords={role}&location={location}&f_TPR=r86400"
-            await page.goto(url)
-            await human_delay()
+        # Fallback to .env if not provided from frontend
+        scrape_roles = roles if roles and len(roles) > 0 else os.getenv("JOB_ROLES").split(",")
+        scrape_locations = locations if locations and len(locations) > 0 else [os.getenv("Location")]
+        
+        for location in scrape_locations:
+            for role in scrape_roles:
+                if manager:
+                    await manager.broadcast(f"scraping {role} in {location}...", "info")
+                url = f"https://www.linkedin.com/jobs/search/?keywords={role}&location={location}&f_TPR=r86400"
+                await page.goto(url)
+                await human_delay()
             job_cards=await page.query_selector_all('li[data-occludable-job-id]')
             if manager:
                 await manager.broadcast(f"found {len(job_cards)} cards for {role}", "success")

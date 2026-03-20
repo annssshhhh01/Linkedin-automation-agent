@@ -204,14 +204,18 @@ async def cancel_action(action_name: str,current_user = Depends(get_current_user
     return {"message": "No active task found"}
 
 
+class ScrapeJobsBody(BaseModel):
+    roles: List[str] = []
+    locations: List[str] = []
+
 # scrapping job logic
 @app.post("/scrape-jobs")  # celery+redis
-async def scrap_jobs(current_user=Depends(get_current_user)): #we are using current user so fastapi knows if user is valid or invalid and if invalid it will through an error 
+async def scrap_jobs(body: ScrapeJobsBody, current_user=Depends(get_current_user)): #we are using current user so fastapi knows if user is valid or invalid and if invalid it will through an error 
     await manager.broadcast("starting job scraper...", "info")
     user_id = current_user.id
     loop = asyncio.get_event_loop()
     task = loop.run_in_executor(
-        global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager,user_id = user_id))
+        global_executor, lambda: asyncio.run(scrape_jobs_main(manager=manager, user_id=user_id, roles=body.roles, locations=body.locations))
     )
     active_tasks["scrape"] = task
     try:
