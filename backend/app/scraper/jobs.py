@@ -7,14 +7,12 @@ from .auth import load_cookies,human_delay
 
 load_dotenv()
 
-import sys
-sys.path.append("C:/Users/Ansh/Desktop/Linkedin_agent/backend/app")
-from database.connection import sessionlocal
-from database.models import Job, Companies
+from app.database.connection import sessionlocal
+from app.database.models import Job, Companies
 
 async def main(manager=None, user_id=None, roles=None, locations=None):
     async with async_playwright() as p:
-        browser= await p.chromium.launch(headless=False) # headless=false means the browser ui will show and we can see each step 
+        browser= await p.chromium.launch(headless=True) # headless=True for production
         page=await browser.new_page()
         stealth=Stealth()
         await stealth.apply_stealth_async(page)

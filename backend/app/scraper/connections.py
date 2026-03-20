@@ -1,12 +1,12 @@
 from playwright_stealth import Stealth
-from scraper.auth import human_delay, load_cookies
+from .auth import human_delay, load_cookies
 from playwright.async_api import async_playwright
 from app.database.connection import sessionlocal
 from app.database.models import People,outreach
 import asyncio
 async def main(user_id=None):
     async with async_playwright() as p:
-        browser=await p.chromium.launch(headless=False)
+        browser=await p.chromium.launch(headless=True)
         page=await browser.new_page()
         await load_cookies(page,user_id)
         stealth=Stealth()

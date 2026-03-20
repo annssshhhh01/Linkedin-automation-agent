@@ -31,7 +31,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origin_regex="https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -109,14 +109,12 @@ def register(body: RegisterBody,db=Depends(get_db)):
     user = User(email=body.email, hashed_password=hash_password(body.password))
     db.add(user)
     db.commit()
-    db.close()
     return {"message": "User created successfully"}
 
 
 @app.post("/login")
 def login(body: RegisterBody,db=Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
-    db.close()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"access_token": create_token(user.id), "token_type": "bearer"}
@@ -130,7 +128,7 @@ class OnBoardingBody(BaseModel):
 
 @app.post("/onboarding")
 def onboarding(body:OnBoardingBody,current_user=Depends(get_current_user),db=Depends(get_db)):
-    user=db.query(User).filter(User.id==current_user.id).first
+    user=db.query(User).filter(User.id==current_user.id).first()
     user.college=body.college
     user.college_id=body.college_id
     user.linkedin_email=body.linkedin_user
@@ -334,5 +332,5 @@ async def send_connection(current_user = Depends(get_current_user)):
     
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor() as pool:
-        await loop.run_in_executor(pool, lambda: asyncio.run(connection_main()))
+        await loop.run_in_executor(pool, lambda: asyncio.run(connection_main(user_id=current_user.id)))
     return {"message": "Connections sent"}
