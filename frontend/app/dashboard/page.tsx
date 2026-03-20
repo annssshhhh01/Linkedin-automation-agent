@@ -14,6 +14,7 @@ import {
   generateNotes,
   sendConnections,
   cancelAction,
+  uploadResume,
 } from "@/lib/api";
 
 type Job = {
@@ -51,10 +52,18 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("jobs");
 
   // Config state
-  const [roles, setRoles] = useState("AI Engineer, Backend Engineer");
-  const [location, setLocation] = useState("India");
+  const [roles, setRoles] = useState<string[]>([]);
+  const [roleInput, setRoleInput] = useState("");
+  const [location, setLocation] = useState("");
+  const [college, setCollege] = useState("");
+  const [collegeId, setCollegeId] = useState("");
   const [maxConn, setMaxConn] = useState("15");
   const [resumeName, setResumeNameState] = useState<string | null>(null);
+
+  // Suggestions state
+  const roleSuggestions = ["AI Engineer", "Backend Engineer", "Frontend Developer", "Full Stack Developer", "Data Scientist", "Product Manager", "DevOps Engineer", "Machine Learning Engineer"];
+  const [locSuggestions, setLocSuggestions] = useState<string[]>([]);
+  const [colSuggestions, setColSuggestions] = useState<string[]>([]);
 
   // Pipeline state
   const [runningAction, setRunningAction] = useState<string | null>(null);
@@ -67,14 +76,79 @@ export default function Dashboard() {
   const [apiUp, setApiUp] = useState(false);
 
   useEffect(() => {
-    const creds = localStorage.getItem("linkedOutCredentials");
-    if (!creds) {
+    // ✅ Check for JWT token instead of LinkedIn credentials
+    const token = localStorage.getItem("token");
+    if (!token) {
       router.push("/onboarding");
       return;
     }
+
+    // Read user preferences from localStorage
+    const savedRoles = localStorage.getItem("linkedOutRoles");
+    const savedLocation = localStorage.getItem("linkedOutLocation");
+    const savedCollege = localStorage.getItem("linkedOutCollege");
+    const savedCollegeId = localStorage.getItem("linkedOutCollegeId");
+
+    if (savedRoles) {
+      try {
+        setRoles(JSON.parse(savedRoles));
+      } catch {
+        // Handle legacy string format
+        if (savedRoles.trim() !== "") setRoles([savedRoles]);
+      }
+    }
+    if (savedLocation) setLocation(savedLocation);
+    if (savedCollege) setCollege(savedCollege);
+    if (savedCollegeId) setCollegeId(savedCollegeId);
+
     fetchJobs();
     checkHealth();
   }, [router]);
+
+  // Save preferences to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("linkedOutRoles", JSON.stringify(roles));
+    localStorage.setItem("linkedOutLocation", location);
+    localStorage.setItem("linkedOutCollege", college);
+    localStorage.setItem("linkedOutCollegeId", collegeId);
+  }, [roles, location, college, collegeId]);
+
+  // Dynamic Location Suggestions
+  useEffect(() => {
+    if (location.trim().length < 2) {
+      setLocSuggestions([]);
+      return;
+    }
+    const delayId = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=5`);
+        const data = await res.json();
+        if (data.results) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setLocSuggestions(data.results.map((r: any) => `${r.name}, ${r.admin1 ? r.admin1 + ', ' : ''}${r.country}`));
+        }
+      } catch (err) { }
+    }, 400);
+    return () => clearTimeout(delayId);
+  }, [location]);
+
+  // Dynamic College Suggestions
+  useEffect(() => {
+    if (college.trim().length < 3) {
+      setColSuggestions([]);
+      return;
+    }
+    const delayId = setTimeout(async () => {
+      try {
+        const res = await fetch(`http://universities.hipolabs.com/search?name=${encodeURIComponent(college)}`);
+        const data = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const names = data.map((u: any) => u.name);
+        setColSuggestions(Array.from(new Set(names)).slice(0, 10) as string[]);
+      } catch (err) { }
+    }, 400);
+    return () => clearTimeout(delayId);
+  }, [college]);
 
   const checkHealth = async () => {
     try {
@@ -107,7 +181,6 @@ export default function Dashboard() {
   };
 
   const handleApprove = async (jobId: number) => {
-    // The backend expects: { "decisions": { "10": true } }
     const pld = { decisions: { [jobId]: true } };
     await approveJob(pld);
     setJobs((prev) =>
@@ -129,7 +202,6 @@ export default function Dashboard() {
   };
 
   const runPipelineAction = async (name: string, fn: () => Promise<unknown>) => {
-    // If clicking a running action, abort it
     if (runningAction === name) {
       try {
         await cancelAction(name);
@@ -159,15 +231,33 @@ export default function Dashboard() {
     }
   };
 
+  // ✅ Actually uploads to S3 via backend
   const handleFileUpload = () => {
     const inp = document.createElement("input");
     inp.type = "file";
     inp.accept = ".pdf";
-    inp.onchange = (e) => {
+    inp.onchange = async (e) => {
       const f = (e.target as HTMLInputElement).files?.[0];
-      if (f) setResumeNameState(f.name);
+      if (f) {
+        try {
+          await uploadResume(f);
+          setResumeNameState(f.name);
+        } catch {
+          console.error("Resume upload failed");
+        }
+      }
     };
     inp.click();
+  };
+
+  // ✅ Logout — clears token and redirects to onboarding
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("linkedOutRoles");
+    localStorage.removeItem("linkedOutLocation");
+    localStorage.removeItem("linkedOutCollege");
+    localStorage.removeItem("linkedOutCollegeId");
+    router.push("/onboarding");
   };
 
   const getScoreClass = (score: number) => {
@@ -209,7 +299,6 @@ export default function Dashboard() {
       ring.style.top = `${ry}px`;
     }, 16);
 
-    // Hover scales
     const interactives = document.querySelectorAll(
       "button, input, .dash-upload-zone, .dash-job-card, .dash-note-card, .dash-abtn"
     );
@@ -297,6 +386,23 @@ export default function Dashboard() {
               <span className={`dash-sdot ${apiUp ? "on" : "off"}`} />
               db
             </span>
+            {/* ✅ Logout button */}
+            <button
+              onClick={handleLogout}
+              style={{
+                background: "none",
+                border: "1px solid rgba(248,113,113,0.3)",
+                color: "#f87171",
+                fontFamily: "monospace",
+                fontSize: 11,
+                padding: "2px 10px",
+                borderRadius: 4,
+                cursor: "pointer",
+                marginLeft: 8,
+              }}
+            >
+              logout
+            </button>
           </div>
         </div>
 
@@ -330,21 +436,89 @@ export default function Dashboard() {
             {/* Config */}
             <div className="dash-panel-section">
               <div className="dash-plabel">config</div>
+              
+              {/* Roles - Tag Input */}
               <div className="dash-config-row">
                 <div className="dash-config-label">target roles</div>
+                <div className="dash-tags-container" style={{
+                  display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px",
+                  padding: roles.length > 0 ? "4px 0" : "0"
+                }}>
+                  {roles.map(role => (
+                    <span key={role} className="dash-tag" style={{
+                      background: "rgba(74, 222, 128, 0.15)",
+                      color: "var(--color-green-accent)",
+                      padding: "2px 8px",
+                      borderRadius: "12px",
+                      fontSize: "10px",
+                      fontFamily: "var(--font-mono)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      {role}
+                      <button 
+                        onClick={() => setRoles(r => r.filter(x => x !== role))}
+                        style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "12px", padding: 0 }}
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
                 <input
                   className="dash-config-input"
-                  value={roles}
-                  onChange={(e) => setRoles(e.target.value)}
+                  placeholder="Type a role and press Enter..."
+                  value={roleInput}
+                  onChange={(e) => setRoleInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && roleInput.trim()) {
+                      e.preventDefault();
+                      if (!roles.includes(roleInput.trim())) setRoles([...roles, roleInput.trim()]);
+                      setRoleInput("");
+                    }
+                  }}
+                  list="role-suggestions"
                 />
+                <datalist id="role-suggestions">
+                  {roleSuggestions.map(s => <option key={s} value={s} />)}
+                </datalist>
               </div>
               <div className="dash-config-row">
                 <div className="dash-config-label">location</div>
                 <input
                   className="dash-config-input"
+                  placeholder="e.g. San Francisco"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
+                  list="loc-suggestions"
                 />
+                <datalist id="loc-suggestions">
+                  {locSuggestions.map(s => <option key={s} value={s} />)}
+                </datalist>
+              </div>
+              <div className="dash-config-row">
+                <div className="dash-config-label">college name</div>
+                <input
+                  className="dash-config-input"
+                  placeholder="Type to search colleges..."
+                  value={college}
+                  onChange={(e) => setCollege(e.target.value)}
+                  list="college-suggestions"
+                />
+                <datalist id="college-suggestions">
+                  {colSuggestions.map(s => <option key={s} value={s} />)}
+                </datalist>
+              </div>
+              <div className="dash-config-row">
+                <div className="dash-config-label">linkedin college id</div>
+                <input
+                  className="dash-config-input"
+                  placeholder="e.g. 13565"
+                  value={collegeId}
+                  onChange={(e) => setCollegeId(e.target.value)}
+                />
+                <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginTop: '6px', fontFamily: 'var(--font-mono)' }}>
+                  Find in the URL of your college's LinkedIn page (e.g. linkedin.com/school/<strong>13565</strong>)
+                </div>
               </div>
               <div className="dash-config-row">
                 <div className="dash-config-label">max connections/day</div>
@@ -403,8 +577,8 @@ export default function Dashboard() {
                         isOtherRunning
                           ? { opacity: 0.5 }
                           : isRunning
-                          ? { background: "#3f1c1c", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }
-                          : {}
+                            ? { background: "#3f1c1c", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }
+                            : {}
                       }
                     >
                       {isRunning ? (

@@ -26,9 +26,15 @@ const [notes, setNotes] = useState<Note[]>([]);
         <NoteCard
           key={note.id}
           note={note}
-          onApprove={() =>
-            approveNote({ note_decision: { id: note.id, status: "approved" } })
-          }
+          onApprove={async (editedNote: string) => {
+            await approveNote({ 
+              note_decision: { 
+                id: note.id,
+                status: "approved",
+                edited: editedNote
+              } 
+            });
+          }}
         />
       ))}
     </div>

@@ -8,6 +8,13 @@ export default function Home() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const trailRef = useRef<HTMLDivElement>(null);
 
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/auth");
+    }
+  }, [router]);
   useEffect(() => {
     const cursor = cursorRef.current;
     const trail = trailRef.current;
@@ -87,7 +94,7 @@ export default function Home() {
         <h1 className="lo-hero-title">
           Get<br />
           <span className="line2">Referred.</span>
-          <span className="line3">{"// stop applying cold. start getting referrals."}</span>
+          <span className="line3">stop applying cold. start getting referrals.</span>
         </h1>
 
         <p className="lo-hero-sub">
@@ -161,7 +168,7 @@ export default function Home() {
 
       {/* ═══════ FEATURES ═══════ */}
       <section className="lo-features" id="features">
-        <div className="lo-section-tag">{"// WHAT IT DOES"}</div>
+        <div className="lo-section-tag">WHAT IT DOES</div>
         <h2 className="lo-section-title">
           Every step.<br />Automated.
         </h2>
@@ -209,7 +216,7 @@ export default function Home() {
 
       {/* ═══════ FLOW ═══════ */}
       <section className="lo-flow-section" id="flow">
-        <div className="lo-section-tag">{"// PIPELINE"}</div>
+        <div className="lo-section-tag">PIPELINE</div>
         <h2 className="lo-section-title">
           How it<br />works.
         </h2>

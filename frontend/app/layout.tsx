@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "LinkedOut — AI Referral Agent",
@@ -20,7 +21,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <Toaster position="bottom-right" toastOptions={{ className: 'bg-gray-800 text-white border border-gray-700' }} />
+        {children}
+      </body>
     </html>
   );
 }

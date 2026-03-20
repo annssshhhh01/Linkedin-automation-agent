@@ -49,7 +49,7 @@ export default function Onboarding() {
     const interactives = document.querySelectorAll('input,textarea,button,a');
     const onEnter = () => ring.style.transform = 'translate(-50%,-50%) scale(1.7)';
     const onLeave = () => ring.style.transform = 'translate(-50%,-50%) scale(1)';
-    
+
     interactives.forEach(el => {
       el.addEventListener('mouseenter', onEnter);
       el.addEventListener('mouseleave', onLeave);
@@ -80,7 +80,7 @@ export default function Onboarding() {
     resize();
     window.addEventListener('resize', resize);
 
-    const pts = Array.from({length:80}, () => ({
+    const pts = Array.from({ length: 80 }, () => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
       vx: (Math.random() - .5) * .35,
@@ -90,17 +90,17 @@ export default function Onboarding() {
     }));
 
     const draw = () => {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      for(let i=0; i<pts.length; i++) {
-        for(let j=i+1; j<pts.length; j++){
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
           const dx = pts[i].x - pts[j].x;
           const dy = pts[i].y - pts[j].y;
-          const d = Math.sqrt(dx*dx + dy*dy);
-          if(d < 90) {
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 90) {
             ctx.beginPath();
             ctx.moveTo(pts[i].x, pts[i].y);
             ctx.lineTo(pts[j].x, pts[j].y);
-            ctx.strokeStyle = `rgba(74,222,128,${.03*(1-d/90)})`;
+            ctx.strokeStyle = `rgba(74,222,128,${.03 * (1 - d / 90)})`;
             ctx.lineWidth = .5;
             ctx.stroke();
           }
@@ -109,12 +109,12 @@ export default function Onboarding() {
       pts.forEach(p => {
         p.x += p.vx;
         p.y += p.vy;
-        if(p.x < 0) p.x = canvas.width;
-        if(p.x > canvas.width) p.x = 0;
-        if(p.y < 0) p.y = canvas.height;
-        if(p.y > canvas.height) p.y = 0;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(74,222,128,${p.op})`;
         ctx.fill();
       });
@@ -176,13 +176,13 @@ export default function Onboarding() {
         <div className="left">
           <div className="nav-logo">Linked<span>Out</span></div>
           <div className="hero-tag"><div className="live-dot"></div>agent ready</div>
-          <div className="hero-title">Connect your<br/><span className="accent">LinkedIn.</span><br/>Get referred.</div>
+          <div className="hero-title">Connect your<br /><span className="accent">LinkedIn.</span><br />Get referred.</div>
           <div className="hero-desc">Sign in once. LinkedOut scrapes jobs, finds alumni, generates personalized notes, and sends connection requests — fully automated.</div>
           <div className="term-preview">
             <div className="term-bar">
-              <div className="tdot" style={{background:'#ff5f57'}}></div>
-              <div className="tdot" style={{background:'#ffbd2e'}}></div>
-              <div className="tdot" style={{background:'#28c840'}}></div>
+              <div className="tdot" style={{ background: '#ff5f57' }}></div>
+              <div className="tdot" style={{ background: '#ffbd2e' }}></div>
+              <div className="tdot" style={{ background: '#28c840' }}></div>
             </div>
             <div className="term-body">
               <div className="tl"><span className="tp">agent@linkedout</span><span className="tc"> ~ $</span><span className="tm"> linkedout start</span></div>
@@ -198,43 +198,43 @@ export default function Onboarding() {
         <div className="right">
           <div className="form-wrap">
             <div className="form-heading">Sign in to LinkedIn</div>
-            <div className="form-sub">// connect your account to begin</div>
+            <div className="form-sub"> connect your account to begin</div>
             <div className="field">
               <div className="flabel">email</div>
-              <input 
-                className={`finput ${emailError ? 'err' : ''}`} 
-                type="email" 
-                placeholder="you@example.com" 
+              <input
+                className={`finput ${emailError ? 'err' : ''}`}
+                type="email"
+                placeholder="you@example.com"
                 autoComplete="off"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
-              {emailError && <div className="ferr" style={{display: 'block'}}>email is required</div>}
+              {emailError && <div className="ferr" style={{ display: 'block' }}>email is required</div>}
             </div>
             <div className="field">
               <div className="flabel">password</div>
-              <input 
-                className={`finput ${passwordError ? 'err' : ''}`} 
-                type="password" 
+              <input
+                className={`finput ${passwordError ? 'err' : ''}`}
+                type="password"
                 placeholder="••••••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
               />
-              {passwordError && <div className="ferr" style={{display: 'block'}}>password is required</div>}
+              {passwordError && <div className="ferr" style={{ display: 'block' }}>password is required</div>}
             </div>
             <div className="or-row">or paste session cookies</div>
-            <div className="field" style={{marginBottom:0}}>
+            <div className="field" style={{ marginBottom: 0 }}>
               <div className="flabel">session cookies (json)</div>
-              <textarea 
-                className="ftextarea" 
-                rows={3} 
+              <textarea
+                className="ftextarea"
+                rows={3}
                 placeholder='[{"name": "li_at", "value": "AQE..."}]'
                 value={cookies}
                 onChange={e => setCookies(e.target.value)}
               ></textarea>
             </div>
-            <button 
-              className={`launch-btn ${loading ? 'loading' : ''}`} 
+            <button
+              className={`launch-btn ${loading ? 'loading' : ''}`}
               onClick={handleLaunch}
               disabled={loading}
             >
@@ -242,7 +242,7 @@ export default function Onboarding() {
             </button>
             <div className="sec-note">
               <div className="sec-icon">⚿</div>
-              <div className="sec-text"><b>credentials never leave your machine.</b><br/>stored encrypted locally · used only for playwright automation · never sent to any server</div>
+              <div className="sec-text"><b>credentials never leave your machine.</b><br />stored encrypted locally · used only for playwright automation · never sent to any server</div>
             </div>
             <Link href="/" className="back">← back to home</Link>
           </div>

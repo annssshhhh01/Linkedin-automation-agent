@@ -128,8 +128,7 @@ class OnBoardingBody(BaseModel):
     linkedin_user:str
     linkedin_pass:str
 
-
-@app.onboarding("/onboarding")
+@app.post("/onboarding")
 def onboarding(body:OnBoardingBody,current_user=Depends(get_current_user),db=Depends(get_db)):
     user=db.query(User).filter(User.id==current_user.id).first
     user.college=body.college
@@ -138,7 +137,6 @@ def onboarding(body:OnBoardingBody,current_user=Depends(get_current_user),db=Dep
     user.linkedin_password=body.linkedin_pass
     db.commit()
     return {"Message":"Onboarding Complete"}
-
     
 @app.post("/upload-resume")
 async def upload_to_s3(file:UploadFile=File(...),db=Depends(get_db),current_user=Depends(get_current_user)): #File(...) is a way to say it is not optional and you have to insert the value

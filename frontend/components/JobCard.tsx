@@ -1,3 +1,9 @@
+"use client";
+
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { Check, Loader2 } from "lucide-react";
+
 type Job = {
   id: number;
   role: string;
@@ -8,10 +14,26 @@ type Job = {
 
 type JobCardProps = {
   job: Job;
-  onApprove: () => void;
+  onApprove: () => Promise<void>;
 };
 
 export default function JobCard({ job, onApprove }: JobCardProps) {
+  const [isApproving, setIsApproving] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
+
+  const handleApprove = async () => {
+    setIsApproving(true);
+    try {
+      await onApprove();
+      setIsApproved(true);
+      toast.success("Job Approved!");
+    } catch (e) {
+      toast.error("Failed to approve job");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   const getColor = (score: number) => {
     if (score > 80) return "text-green-400";
     if (score > 60) return "text-yellow-400";
@@ -19,9 +41,11 @@ export default function JobCard({ job, onApprove }: JobCardProps) {
   };
 
   return (
-    <div className="bg-gray-900 p-5 rounded-2xl border border-gray-800 flex justify-between items-center mb-4 hover:scale-[1.02] transition">
+    <div className={`p-5 rounded-2xl border flex justify-between items-center mb-4 transition ${
+      isApproved ? "bg-green-900/20 border-green-800" : "bg-gray-900 border-gray-800 hover:scale-[1.02]"
+    }`}>
 
-      <div>
+      <div className={isApproved ? "opacity-60" : ""}>
         <h2 className="text-lg font-semibold">
           {job.role} @ {job.company}
         </h2>
@@ -36,10 +60,21 @@ export default function JobCard({ job, onApprove }: JobCardProps) {
       </div>
 
       <button
-        onClick={onApprove}
-        className="bg-green-500 px-4 py-2 rounded-xl hover:bg-green-600 transition"
+        onClick={handleApprove}
+        disabled={isApproving || isApproved}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl transition font-medium ${
+          isApproved
+            ? "bg-green-600/50 text-white cursor-not-allowed"
+            : "bg-green-500 hover:bg-green-600 text-white"
+        }`}
       >
-        Approve
+        {isApproving ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Approving...</>
+        ) : isApproved ? (
+          <><Check className="w-4 h-4" /> Approved</>
+        ) : (
+          "Approve"
+        )}
       </button>
     </div>
   );

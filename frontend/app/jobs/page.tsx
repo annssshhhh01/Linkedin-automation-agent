@@ -27,9 +27,9 @@ const [jobs, setJobs] = useState<Job[]>([]);
         <JobCard
           key={job.id}
           job={job}
-          onApprove={() =>
-            approveJob({ decision: { job_id: job.id, status: "approved" } })
-          }
+          onApprove={async () => {
+            await approveJob({ decisions: { [job.id]: true } });
+          }}
         />
       ))}
     </div>
