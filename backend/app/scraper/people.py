@@ -136,7 +136,7 @@ async def find_people(page, company_name, company_id,user_id=None,college_id=Non
     db.close()
 async def main(user_id=None):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True) # headless=True for production
         page = await browser.new_page()
         stealth = Stealth()
         await stealth.apply_stealth_async(page)

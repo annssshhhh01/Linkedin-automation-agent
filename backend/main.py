@@ -123,16 +123,16 @@ def login(body: RegisterBody,db=Depends(get_db)):
 class OnBoardingBody(BaseModel):
     college:str
     college_id:str
-    linkedin_user:str
-    linkedin_pass:str
+    linkedin_email:str
+    linkedin_password:str
 
 @app.post("/onboarding")
 def onboarding(body:OnBoardingBody,current_user=Depends(get_current_user),db=Depends(get_db)):
     user=db.query(User).filter(User.id==current_user.id).first()
     user.college=body.college
     user.college_id=body.college_id
-    user.linkedin_email=body.linkedin_user
-    user.linkedin_password=body.linkedin_pass
+    user.linkedin_email=body.linkedin_email
+    user.linkedin_password=body.linkedin_password
     db.commit()
     return {"Message":"Onboarding Complete"}
     
